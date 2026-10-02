@@ -145,8 +145,13 @@ ssh -G github.com | grep -i identityfile
 zsh -lc 'command -v node java'        # non-interactive login shell has them too
 ```
 
-Then `aerospace reload-config`, open nvim (plugins install), run `:MetalsInstall`
-and `cs install sbt scalafix`.
+**5. Finish up**
+
+- `aerospace reload-config`
+- open nvim (plugins install), then `:MetalsInstall`
+- `cs install sbt scalafix`
+- Docker Desktop: Settings → Advanced → CLI tools in the *System* location, so
+  it stops writing to the shell files
 
 **Undo:** `cd ~/Projects/dotfiles-mac && stow -D */`, then move the files in
 `$B` back. When everything works, `rm -rf "$B"`.
