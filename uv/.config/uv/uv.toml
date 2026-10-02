@@ -1,0 +1,3 @@
+# Projects get uv-downloaded Pythons (~/.local/share/uv/python), never Homebrew's:
+# a venv built on it breaks when brew upgrades python to the next minor version.
+python-preference = "only-managed"

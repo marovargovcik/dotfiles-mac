@@ -1,0 +1,5 @@
+.DS_Store
+# If ~/.config/zsh was folded into a symlink, keep shell state out of git.
+zsh/.config/zsh/.zsh_history
+zsh/.config/zsh/.zcompdump*
+zsh/.config/zsh/.zsh_sessions/
