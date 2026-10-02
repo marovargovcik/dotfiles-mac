@@ -114,3 +114,9 @@ brew "oxlint"
 brew "oxfmt"
 # Scala tooling (cs install sbt scalafix scalafmt; nvim-metals)
 brew "coursier"
+# zsh prompt and plugins (.zshrc sources them from $HOMEBREW_PREFIX)
+brew "powerlevel10k"
+brew "zsh-autosuggestions"
+brew "zsh-syntax-highlighting"
+brew "zsh-vi-mode"
+brew "zsh-history-substring-search"
