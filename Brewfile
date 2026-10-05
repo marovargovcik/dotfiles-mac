@@ -114,6 +114,10 @@ brew "oxlint"
 brew "oxfmt"
 # Scala tooling (cs install sbt scalafix scalafmt; nvim-metals)
 brew "coursier"
+# Terminal multiplexer
+brew "tmux"
+# Agent multiplexer (herdr package, nvim herdr plugins)
+brew "herdr"
 # zsh prompt and plugins (.zshrc sources them from $HOMEBREW_PREFIX)
 brew "powerlevel10k"
 brew "zsh-autosuggestions"

@@ -20,13 +20,14 @@ Not from Homebrew: Alacritty and 1Password (vendor `.dmg`s into `/Applications`)
 
 ```sh
 git clone git@github.com:marovargovcik/dotfiles-mac.git ~/Projects/dotfiles-mac
-mkdir -p ~/.ssh ~/.local/bin ~/.config/gh && chmod 700 ~/.ssh
+mkdir -p ~/.ssh ~/.local/bin ~/.config/gh ~/.config/herdr && chmod 700 ~/.ssh
 cd ~/Projects/dotfiles-mac && stow */
 ```
 
 **Create those directories first** — stow symlinks any missing directory whole,
-and SSH keys, the `gh` token (`~/.config/gh/hosts.yml`) and binaries in
-`~/.local/bin` would then live inside the repo.
+and SSH keys, the `gh` token (`~/.config/gh/hosts.yml`), binaries in
+`~/.local/bin` and herdr's plugins, sockets and logs would then live inside the
+repo.
 
 stow refuses to replace an existing file; on a machine with an older setup, see
 [Replacing an existing setup](#replacing-an-existing-setup).
@@ -38,6 +39,8 @@ stow refuses to replace an existing file; on a machine with an older setup, see
 | `ssh` | `~/.ssh/config` only — never a key. Includes `~/.famlydev/ssh_config`, written by the Famly dev tooling |
 | `gh` | `config.yml` only; `hosts.yml` holds the token and stays out |
 | `aerospace` | i3-style tiling; starts `borders` |
+| `herdr` | agent multiplexer, prefix ctrl+space; ctrl+hjkl crosses nvim splits and herdr panes |
+| `tmux` | prefix ctrl+space, vi copy mode into `pbcopy`; no alt bindings, AeroSpace owns alt |
 | `bin` | `scalafmt` wrapper that fetches the version pinned in the project's `.scalafmt.conf` |
 | the rest | app configs; comments in the files say why |
 
@@ -70,6 +73,18 @@ cs install sbt scalafix
 # claude → ~/.local/bin/claude
 curl -fsSL https://claude.ai/install.sh | bash
 
+# Claude Code preferences, merged into ~/.claude/settings.json. Not a stow
+# package: on this machine the file also holds the organization's plugins and
+# permissions, which stay out of the repo.
+f=~/.claude/settings.json; mkdir -p ~/.claude; [ -s "$f" ] || echo '{}' > "$f"
+jq '. + {theme: "dark", editorMode: "vim", disableAgentView: true}' "$f" > "$f.new" && mv "$f.new" "$f"
+
+# herdr plugins (nvim sidebar, ctrl+hjkl navigation) and the Claude Code hook
+# that shows agent state in the herdr sidebar
+herdr plugin install ChmaraX/herdr-nvim --yes
+herdr plugin install paulbkim-dev/vim-herdr-navigation --yes
+herdr integration install claude
+
 git lfs install --skip-repo
 gh auth login
 ```
@@ -80,6 +95,7 @@ they need are already there. Docker Desktop: Settings → Advanced → CLI tools
 the *System* location (`/usr/local/bin`), for the same reason.
 
 Then in nvim: plugins install on first start (`vim.pack`), then `:MetalsInstall`.
+octo.nvim talks to GitHub with the `gh` token, so `gh auth login` comes first.
 
 ## 4. Shell notes
 
@@ -118,7 +134,8 @@ B=~/dotfiles-backup-$(date +%Y%m%d-%H%M%S); mkdir -p "$B"
 for p in .zshenv .zprofile .zshrc .p10k.zsh .profile .config/zsh \
          .gitconfig .config/git .ssh/config .config/gh/config.yml \
          .config/aerospace .config/alacritty .config/kitty .config/lazygit \
-         .config/nvim .config/lf .config/uv .local/bin/scalafmt; do
+         .config/nvim .config/lf .config/uv .config/tmux .config/herdr/config.toml \
+         .local/bin/scalafmt; do
   [ -e ~/$p ] || [ -L ~/$p ] || continue
   mkdir -p "$B/$(dirname $p)" && mv ~/$p "$B/$p"
 done
@@ -139,7 +156,8 @@ cd ~/Projects/dotfiles-mac && stow */
 ```sh
 echo $EDITOR                          # nvim
 whence -w nvm sdk z lf                # functions
-command -v node java cs claude composer docker
+command -v node java cs claude composer docker tmux herdr
+jq '{theme, editorMode, disableAgentView}' ~/.claude/settings.json
 git config --get core.pager           # delta
 ssh -G github.com | grep -i identityfile
 zsh -lc 'command -v node java'        # non-interactive login shell has them too
@@ -150,6 +168,7 @@ zsh -lc 'command -v node java'        # non-interactive login shell has them too
 - `aerospace reload-config`
 - open nvim (plugins install), then `:MetalsInstall`
 - `cs install sbt scalafix`
+- the Claude Code settings merge and the three `herdr` lines from §3
 - Docker Desktop: Settings → Advanced → CLI tools in the *System* location, so
   it stops writing to the shell files
 
