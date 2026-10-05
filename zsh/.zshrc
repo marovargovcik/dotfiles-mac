@@ -33,7 +33,6 @@ zvm_after_init_commands+=('source <(fzf --zsh)')
 
 # Nested shells inherit PATH from .zprofile but not shell functions.
 command -v nvm >/dev/null || { [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"; }
-command -v sdk >/dev/null || { [[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"; }
 
 # completions: brew's and docker-cli's
 FPATH="$HOMEBREW_PREFIX/share/zsh/site-functions:$HOME/.docker/completions:$FPATH"
@@ -42,7 +41,7 @@ compinit
 
 # Aliases and zoxide after everything sourced above: zsh expands aliases while
 # parsing, so an earlier `alias cd=z` or `alias cat=bat` leaks into the
-# functions nvm and sdkman define.
+# functions nvm defines.
 alias ls='eza'
 alias ll='eza -lh'
 alias la='eza -lha'

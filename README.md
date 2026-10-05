@@ -34,7 +34,7 @@ stow refuses to replace an existing file; on a machine with an older setup, see
 
 | Package | Provides |
 |---|---|
-| `zsh` | `.zprofile` is the environment (PATH, nvm, sdkman, `EDITOR`); `.zshrc` is interactive only; `.p10k.zsh` |
+| `zsh` | `.zprofile` is the environment (PATH, nvm, coursier's JDK, `EDITOR`); `.zshrc` is interactive only; `.p10k.zsh` |
 | `git` | delta pager, diff3 conflicts, LFS filter, `gh` as GitHub credential helper; global ignore |
 | `ssh` | `~/.ssh/config` only — never a key. Includes `~/.famlydev/ssh_config`, written by the Famly dev tooling |
 | `gh` | `config.yml` only; `hosts.yml` holds the token and stays out |
@@ -56,18 +56,12 @@ export NVM_DIR="$HOME/.config/nvm" && mkdir -p "$NVM_DIR"
 PROFILE=/dev/null bash -c 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/HEAD/install.sh | bash'
 nvm install --lts
 
-# java — sdkman
-curl -s "https://get.sdkman.io?rcupdate=false" | bash
-sdk install java
-
-# deno
-curl -fsSL https://deno.land/install.sh | sh -s -- --no-modify-path
-
 # composer → ~/.local/bin/composer
 php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
 php composer-setup.php --install-dir="$HOME/.local/bin" --filename=composer && rm composer-setup.php
 
-# Scala tools (coursier from the Brewfile)
+# java and Scala tools — coursier (from the Brewfile)
+cs java --jvm zulu:25 -version   # downloads the JDK that .zprofile puts on PATH
 cs install sbt scalafix
 
 # claude → ~/.local/bin/claude
@@ -89,9 +83,8 @@ git lfs install --skip-repo
 gh auth login
 ```
 
-`PROFILE=/dev/null`, `rcupdate=false` and `--no-modify-path` keep installers
-from appending to the shell files, which are symlinks into this repo; the lines
-they need are already there. Docker Desktop: Settings → Advanced → CLI tools in
+`PROFILE=/dev/null` keeps the nvm installer from appending to the shell files,
+which are symlinks into this repo; the lines it needs are already there. Docker Desktop: Settings → Advanced → CLI tools in
 the *System* location (`/usr/local/bin`), for the same reason.
 
 Then in nvim: plugins install on first start (`vim.pack`), then `:MetalsInstall`.
@@ -101,10 +94,10 @@ octo.nvim talks to GitHub with the `gh` token, so `gh auth login` comes first.
 
 - Order in `.zshrc` matters: direnv around the powerlevel10k instant prompt;
   aliases and zoxide at the very end, because zsh expands aliases while parsing
-  and `alias cd=z` would otherwise leak into nvm's and sdkman's functions.
-- nvm and sdkman are sourced in `.zprofile` (so node and java are on PATH for
-  non-interactive processes) and again in `.zshrc` only when their function is
-  missing — nested shells inherit PATH but not functions.
+  and `alias cd=z` would otherwise leak into nvm's functions.
+- nvm and coursier's JDK are set up in `.zprofile`, so node and java are on PATH
+  for non-interactive processes too. nvm is sourced again in `.zshrc` only when
+  its function is missing — nested shells inherit PATH but not functions.
 - fzf key bindings go through `zvm_after_init_commands`: zsh-vi-mode resets
   keybindings when it initialises.
 - Python: uv only (`uv.toml` refuses Homebrew's Python).
@@ -125,6 +118,7 @@ Everything below is moved, not deleted, into one backup folder.
 ```sh
 cd ~/Projects/dotfiles-mac && git pull
 brew bundle --file=Brewfile
+cs java --jvm zulu:25 -version && cs install sbt scalafix
 ```
 
 **2. Back up and clear every path stow will own, plus dead shell files**
@@ -155,7 +149,7 @@ cd ~/Projects/dotfiles-mac && stow */
 
 ```sh
 echo $EDITOR                          # nvim
-whence -w nvm sdk z lf                # functions
+whence -w nvm z lf                    # functions
 command -v node java cs claude composer docker tmux herdr
 jq '{theme, editorMode, disableAgentView}' ~/.claude/settings.json
 git config --get core.pager           # delta
@@ -167,10 +161,17 @@ zsh -lc 'command -v node java'        # non-interactive login shell has them too
 
 - `aerospace reload-config`
 - open nvim (plugins install), then `:MetalsInstall`
-- `cs install sbt scalafix`
 - the Claude Code settings merge and the three `herdr` lines from §3
 - Docker Desktop: Settings → Advanced → CLI tools in the *System* location, so
   it stops writing to the shell files
 
+**6. Remove what this setup no longer uses**, once the checks pass
+
+```sh
+rm -rf ~/.sdkman ~/.deno               # java and sbt come from coursier
+rm -rf ~/.config/gcloud                # gcloud config and credentials
+rm -rf ~/.config/.wrangler ~/.config/cagent ~/.cagent ~/.mastra ~/.g8
+```
+
 **Undo:** `cd ~/Projects/dotfiles-mac && stow -D */`, then move the files in
-`$B` back. When everything works, `rm -rf "$B"`.
+`$B` back. Step 6 is not undoable. When everything works, `rm -rf "$B"`.

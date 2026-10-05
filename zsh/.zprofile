@@ -16,9 +16,6 @@ export PATH="/opt/homebrew/opt/php@8.4/sbin:$PATH"
 # mysql (brew keg)
 export PATH="/opt/homebrew/opt/mysql-client/bin:$PATH"
 
-# deno
-export PATH="$HOME/.deno/bin:$PATH"
-
 # coursier (cs install sbt scalafix)
 export PATH="$PATH:$HOME/Library/Application Support/Coursier/bin"
 
@@ -32,6 +29,5 @@ export NVM_DIR="$HOME/.config/nvm"
 
 ssh-add --apple-load-keychain 2>/dev/null
 
-# sdk man (keep last: its candidates go first on PATH)
-export SDKMAN_DIR="$HOME/.sdkman"
-[[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"
+# java: coursier's JDK sets JAVA_HOME and goes first on PATH (keep last)
+command -v cs >/dev/null && eval "$(cs java --jvm zulu:25 --env)"
