@@ -1,3 +1,4 @@
+tap "coursier/formulas"
 tap "felixkratz/formulae", "https://github.com/FelixKratz/homebrew-formulae", trusted: true
 tap "nikitabobko/tap", trusted: true
 tap "rvben/rumdl", trusted: true
@@ -112,8 +113,9 @@ brew "typescript-language-server"
 brew "basedpyright"
 brew "oxlint"
 brew "oxfmt"
-# Scala tooling (cs install sbt scalafix scalafmt; nvim-metals)
-brew "coursier"
+# Java and Scala tooling (cs java, cs install sbt scalafix; nvim-metals). From
+# coursier's tap: the native `cs` launcher, without Homebrew's openjdk on PATH.
+brew "coursier/formulas/coursier"
 # Terminal multiplexer
 brew "tmux"
 # Agent multiplexer (herdr package, nvim herdr plugins)
