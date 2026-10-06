@@ -95,7 +95,7 @@ brew "bat"
 brew "zoxide"
 # Fuzzy finder (shell key bindings)
 brew "fzf"
-# Terminal file manager (lf function, nvim <leader>l)
+# Terminal file manager (lf function)
 brew "lf"
 # Image preview in the terminal (lf preview)
 brew "chafa"
@@ -118,7 +118,7 @@ brew "oxfmt"
 brew "coursier/formulas/coursier"
 # Terminal multiplexer
 brew "tmux"
-# Agent multiplexer (herdr package, nvim herdr plugins)
+# Agent multiplexer (herdr package)
 brew "herdr"
 # zsh prompt and plugins (.zshrc sources them from $HOMEBREW_PREFIX)
 brew "powerlevel10k"

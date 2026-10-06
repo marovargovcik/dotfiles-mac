@@ -39,7 +39,7 @@ stow refuses to replace an existing file; on a machine with an older setup, see
 | `ssh` | `~/.ssh/config` only — never a key. Includes `~/.famlydev/ssh_config`, written by the Famly dev tooling |
 | `gh` | `config.yml` only; `hosts.yml` holds the token and stays out |
 | `aerospace` | i3-style tiling; starts `borders` |
-| `herdr` | agent multiplexer, prefix ctrl+space; ctrl+hjkl crosses nvim splits and herdr panes |
+| `herdr` | agent multiplexer, prefix ctrl+space |
 | `tmux` | prefix ctrl+space, vi copy mode into `pbcopy`; no alt bindings, AeroSpace owns alt |
 | `bin` | `scalafmt` wrapper that fetches the version pinned in the project's `.scalafmt.conf` |
 | the rest | app configs; comments in the files say why |
@@ -73,11 +73,7 @@ curl -fsSL https://claude.ai/install.sh | bash
 f=~/.claude/settings.json; mkdir -p ~/.claude; [ -s "$f" ] || echo '{}' > "$f"
 jq '. + {theme: "dark", editorMode: "vim", disableAgentView: true}' "$f" > "$f.new" && mv "$f.new" "$f"
 
-# herdr plugins (nvim sidebar, ctrl+hjkl navigation) and the Claude Code hook
-# that shows agent state in the herdr sidebar
-herdr plugin install ChmaraX/herdr-nvim --yes
-herdr plugin install paulbkim-dev/vim-herdr-navigation --yes
-herdr integration install claude
+herdr integration install claude   # agent state in the herdr sidebar
 
 git lfs install --skip-repo
 gh auth login
@@ -88,7 +84,6 @@ which are symlinks into this repo; the lines it needs are already there. Docker 
 the *System* location (`/usr/local/bin`), for the same reason.
 
 Then in nvim: plugins install on first start (`vim.pack`), then `:MetalsInstall`.
-octo.nvim talks to GitHub with the `gh` token, so `gh auth login` comes first.
 
 ## 4. Shell notes
 
@@ -161,7 +156,7 @@ zsh -lc 'command -v node java'        # non-interactive login shell has them too
 
 - `aerospace reload-config`
 - open nvim (plugins install), then `:MetalsInstall`
-- the Claude Code settings merge and the three `herdr` lines from §3
+- the Claude Code settings merge and the `herdr integration` line from §3
 - Docker Desktop: Settings → Advanced → CLI tools in the *System* location, so
   it stops writing to the shell files
 
