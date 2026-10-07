@@ -1,4 +1,4 @@
-tap "coursier/formulas"
+tap "coursier/formulas", trusted: true
 tap "felixkratz/formulae", "https://github.com/FelixKratz/homebrew-formulae", trusted: true
 tap "nikitabobko/tap", trusted: true
 tap "rvben/rumdl", trusted: true
@@ -43,30 +43,22 @@ brew "jq"
 brew "lazygit"
 # Fast and powerful Git hooks manager for any type of projects
 brew "lefthook"
-# Secure hashing function
-brew "libb2"
 # Open source relational database management system
 brew "mysql-client"
 # Ambitious Vim-fork focused on extensibility and agility
 brew "neovim"
 # General-purpose scripting language
 brew "php@8.4"
-# Package compiler and linker metadata toolkit
-brew "pkgconf"
 # PDF rendering library (based on the xpdf-3.0 code base)
 brew "poppler"
 # Markdown Linter and Formatter written in Rust
 brew "rumdl"
 # Autoformat shell script source code
 brew "shfmt"
-# Tool Command Language
-brew "tcl-tk@8"
 # Source code spell checker
 brew "typos-cli"
 # Extremely fast Python package installer and resolver, written in Rust
 brew "uv"
-# General-purpose lossless data-compression library
-brew "zlib"
 # UNIX shell (command interpreter)
 brew "zsh"
 # A window border system for macOS
