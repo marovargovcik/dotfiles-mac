@@ -13,12 +13,11 @@ files go where each tool looks by default (`~/.zshrc`, `~/.gitconfig`,
 eval "$(/opt/homebrew/bin/brew shellenv)"
 xcode-select --install          # git for nvm; C compiler for nvim-treesitter parsers
 
-# node — nvm, into ~/.config/nvm (NVM_DIR in .zprofile). Before the Brewfile:
-# its npm entries install with the first npm on PATH, and without one
-# brew bundle installs Homebrew's node.
+# node — nvm, into ~/.config/nvm (NVM_DIR in .zprofile), and its globals
 export NVM_DIR="$HOME/.config/nvm" && mkdir -p "$NVM_DIR"
 PROFILE=/dev/null bash -c 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/HEAD/install.sh | bash'
 . "$NVM_DIR/nvm.sh" && nvm install --lts
+npm install -g corepack yarn typescript-language-server typescript
 
 brew bundle --file=Brewfile
 ```
@@ -64,9 +63,15 @@ after `.zshenv` and would push those entries behind the system paths.
 php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
 php composer-setup.php --install-dir="$HOME/.local/bin" --filename=composer && rm composer-setup.php
 
-# java and Scala tools — coursier (from the Brewfile)
-cs java --jvm zulu:25 -version   # downloads the JDK that .zprofile puts on PATH
+# coursier → ~/Library/Application Support/Coursier/bin (on PATH in .zprofile),
+# then the JDK .zprofile puts on PATH, and the Scala tools
+curl -fL https://github.com/coursier/coursier/releases/latest/download/cs-aarch64-apple-darwin.gz | gzip -d > /tmp/cs
+chmod +x /tmp/cs && /tmp/cs install cs && rm /tmp/cs
+cs java --jvm zulu:25 -version
 cs install sbt scalafix
+
+# Python language server for nvim
+uv tool install basedpyright
 
 # claude → ~/.local/bin/claude
 curl -fsSL https://claude.ai/install.sh | bash
@@ -105,12 +110,12 @@ Then in nvim: plugins install on first start (`vim.pack`), then `:MetalsInstall`
 
 ```sh
 brew update && brew upgrade          # zsh plugins included
-brew bundle dump --file=Brewfile --force --no-vscode   # after installing something new
-uv tool upgrade --all && npm update -g
+brew bundle dump --file=Brewfile --force --no-vscode --no-npm   # after installing something new
+uv tool upgrade --all && npm update -g && cs update
 ```
 
-npm globals belong to one Node version: after `nvm install` of a new one, run
-`brew bundle --file=Brewfile` to put them back.
+npm globals belong to one Node version: install a new one with
+`nvm install --lts --reinstall-packages-from=current` to keep them.
 
 ## Replacing an existing setup
 
@@ -120,8 +125,13 @@ Everything below is moved, not deleted, into one backup folder.
 
 ```sh
 cd ~/Projects/dotfiles-mac && git pull
-brew bundle --file=Brewfile   # npm entries go to the npm on PATH: nvm's here
+brew bundle --file=Brewfile
+npm install -g corepack yarn typescript-language-server typescript
+curl -fL https://github.com/coursier/coursier/releases/latest/download/cs-aarch64-apple-darwin.gz | gzip -d > /tmp/cs
+chmod +x /tmp/cs && /tmp/cs install cs && rm /tmp/cs
+export PATH="$PATH:$HOME/Library/Application Support/Coursier/bin"   # the old shell lacks it
 cs java --jvm zulu:25 -version && cs install sbt scalafix
+uv tool install basedpyright
 ```
 
 **2. Back up and clear every path stow will own, plus dead shell files**
@@ -174,8 +184,6 @@ zsh -lc 'command -v node java'        # non-interactive login shell has them too
 
 ```sh
 rm -rf ~/.sdkman ~/.deno               # java and sbt come from coursier
-brew uninstall typescript-language-server basedpyright oxlint oxfmt
-brew autoremove                        # Homebrew's node and typescript, now unused
 rm -rf ~/.config/gcloud                # gcloud config and credentials
 rm -rf ~/.config/.wrangler ~/.config/cagent ~/.cagent ~/.mastra ~/.g8
 ```

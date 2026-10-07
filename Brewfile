@@ -1,4 +1,3 @@
-tap "coursier/formulas", trusted: true
 tap "felixkratz/formulae", "https://github.com/FelixKratz/homebrew-formulae", trusted: true
 tap "nikitabobko/tap", trusted: true
 tap "rvben/rumdl", trusted: true
@@ -74,8 +73,6 @@ cask "font-hack-nerd-font"
 cask "maccy"
 # Reverse proxy, secure introspectable tunnels to localhost
 cask "ngrok"
-npm "corepack"
-npm "yarn"
 # --- not yet installed: the CLI tools, nvim servers and lf previewers the configs above use
 # Symlink farm manager (installs these dotfiles)
 brew "stow"
@@ -100,15 +97,6 @@ brew "fd"
 brew "ripgrep"
 # nvim-treesitter builds parsers with it
 brew "tree-sitter-cli"
-# Language servers nvim enables. Not Homebrew's formulas: those pull in
-# Homebrew's node next to nvm's. oxlint and oxfmt come from each project's
-# node_modules; nvim only starts them where the project declares them.
-npm "typescript-language-server"
-npm "typescript"
-uv "basedpyright"
-# Java and Scala tooling (cs java, cs install sbt scalafix; nvim-metals). From
-# coursier's tap: the native `cs` launcher, without Homebrew's openjdk on PATH.
-brew "coursier/formulas/coursier"
 # Terminal multiplexer
 brew "tmux"
 # Agent multiplexer (herdr package)
