@@ -37,6 +37,9 @@ and SSH keys, the `gh` token (`~/.config/gh/hosts.yml`), binaries in
 `~/.local/bin` and herdr's plugins, sockets and logs would then live inside the
 repo.
 
+`.stowrc` sets the target to `~`: stow's default is the repo's parent
+directory, here `~/Projects`. It is read only when stow runs from the repo.
+
 stow refuses to replace an existing file; on a machine with an older setup, see
 [Replacing an existing setup](#replacing-an-existing-setup).
 

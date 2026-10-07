@@ -29,5 +29,8 @@ export NVM_DIR="$HOME/.config/nvm"
 
 ssh-add --apple-load-keychain 2>/dev/null
 
-# java: coursier's JDK sets JAVA_HOME and goes first on PATH (keep last)
-command -v cs >/dev/null && eval "$(cs java --jvm zulu:25 --env)"
+# java: coursier's JDK as JAVA_HOME, its bin first on PATH (keep last). cs prints
+# JVM warnings on stderr; `cs java --env` sets only JAVA_HOME on macOS.
+if command -v cs >/dev/null && JAVA_HOME="$(cs java-home --jvm zulu:25 2>/dev/null)"; then
+  export JAVA_HOME PATH="$JAVA_HOME/bin:$PATH"
+fi
