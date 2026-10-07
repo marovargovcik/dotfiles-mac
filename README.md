@@ -185,6 +185,7 @@ zsh -lc 'command -v node java'        # non-interactive login shell has them too
 ```sh
 rm -rf ~/.sdkman ~/.deno               # java and sbt come from coursier
 rm -rf ~/.config/gcloud                # gcloud config and credentials
+rm -rf ~/.config/homebrew              # trust list; without XDG_CONFIG_HOME it is ~/.homebrew
 rm -rf ~/.config/.wrangler ~/.config/cagent ~/.cagent ~/.mastra ~/.g8
 ```
 
