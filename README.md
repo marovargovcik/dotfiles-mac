@@ -137,6 +137,7 @@ ls -A "$B" "$B/.config"
 
 ```sh
 cp "$B/.config/zsh/.zsh_history" ~/.zsh_history 2>/dev/null
+mkdir -p ~/.ssh ~/.local/bin ~/.config/gh ~/.config/herdr   # see §2
 cd ~/Projects/dotfiles-mac && stow */
 ```
 
