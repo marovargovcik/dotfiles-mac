@@ -158,6 +158,7 @@ zsh -lc 'command -v node java'        # non-interactive login shell has them too
 - `aerospace reload-config`
 - open nvim (plugins install), then `:MetalsInstall`
 - the Claude Code settings merge and the `herdr integration` line from §3
+- `git lfs install --skip-repo`
 - Docker Desktop: Settings → Advanced → CLI tools in the *System* location, so
   it stops writing to the shell files
 
