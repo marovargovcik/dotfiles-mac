@@ -6,11 +6,20 @@ terminal, Neovim as the editor. Every top-level directory is a
 files go where each tool looks by default (`~/.zshrc`, `~/.gitconfig`,
 `~/.config/nvim`, …), nothing relocates them.
 
-## 1. Homebrew packages
+## 1. Node, then Homebrew packages
 
 ```sh
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-xcode-select --install          # C compiler for nvim-treesitter parsers
+eval "$(/opt/homebrew/bin/brew shellenv)"
+xcode-select --install          # git for nvm; C compiler for nvim-treesitter parsers
+
+# node — nvm, into ~/.config/nvm (NVM_DIR in .zprofile). Before the Brewfile:
+# its npm entries install with the first npm on PATH, and without one
+# brew bundle installs Homebrew's node.
+export NVM_DIR="$HOME/.config/nvm" && mkdir -p "$NVM_DIR"
+PROFILE=/dev/null bash -c 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/HEAD/install.sh | bash'
+. "$NVM_DIR/nvm.sh" && nvm install --lts
+
 brew bundle --file=Brewfile
 ```
 
@@ -51,12 +60,6 @@ after `.zshenv` and would push those entries behind the system paths.
 ## 3. Runtimes and tools outside Homebrew
 
 ```sh
-# node — nvm, into ~/.config/nvm (NVM_DIR in .zprofile)
-export NVM_DIR="$HOME/.config/nvm" && mkdir -p "$NVM_DIR"
-PROFILE=/dev/null bash -c 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/HEAD/install.sh | bash'
-nvm install --lts
-brew bundle --file=Brewfile   # again: its npm entries need nvm's node
-
 # composer → ~/.local/bin/composer
 php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
 php composer-setup.php --install-dir="$HOME/.local/bin" --filename=composer && rm composer-setup.php
@@ -80,7 +83,7 @@ git lfs install --skip-repo
 gh auth login
 ```
 
-`PROFILE=/dev/null` keeps the nvm installer from appending to the shell files,
+`PROFILE=/dev/null` (§1) keeps the nvm installer from appending to the shell files,
 which are symlinks into this repo; the lines it needs are already there. Docker Desktop: Settings → Advanced → CLI tools in
 the *System* location (`/usr/local/bin`), for the same reason.
 
@@ -117,7 +120,7 @@ Everything below is moved, not deleted, into one backup folder.
 
 ```sh
 cd ~/Projects/dotfiles-mac && git pull
-brew bundle --file=Brewfile
+brew bundle --file=Brewfile   # npm entries go to the npm on PATH: nvm's here
 cs java --jvm zulu:25 -version && cs install sbt scalafix
 ```
 
