@@ -144,7 +144,7 @@ B=~/dotfiles-backup-$(date +%Y%m%d-%H%M%S); mkdir -p "$B"
 for p in .zshenv .zprofile .zshrc .p10k.zsh .profile .config/zsh \
          .gitconfig .config/git .ssh/config .config/gh/config.yml \
          .config/aerospace .config/alacritty .config/kitty .config/lazygit \
-         .config/nvim .config/lf .config/uv .config/tmux .config/herdr/config.toml \
+         .config/nvim .config/uv .config/tmux .config/herdr/config.toml \
          .local/bin/scalafmt; do
   [ -e ~/$p ] || [ -L ~/$p ] || continue
   mkdir -p "$B/$(dirname $p)" && mv ~/$p "$B/$p"
@@ -166,7 +166,7 @@ cd ~/Projects/dotfiles-mac && stow */
 
 ```sh
 echo $EDITOR                          # nvim
-whence -w nvm z lf                    # functions
+whence -w nvm z                       # functions
 command -v node java cs claude composer docker tmux herdr
 jq '{theme, editorMode, disableAgentView}' ~/.claude/settings.json
 git config --get core.pager           # delta

@@ -49,16 +49,6 @@ alias lt='eza --tree'
 alias cat='bat'
 alias lg='lazygit'
 
-lf() {
-  local tmp="$(mktemp)"
-  command lf -last-dir-path="$tmp" "$@"
-  if [ -f "$tmp" ]; then
-    local dir="$(command cat "$tmp")"
-    rm -f "$tmp"
-    [ -d "$dir" ] && [ "$dir" != "$PWD" ] && cd "$dir"
-  fi
-}
-
 # zoxide last: it wraps cd, and later inits win.
 eval "$(zoxide init zsh)"
 alias cd='z'

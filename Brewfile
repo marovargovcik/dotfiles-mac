@@ -73,21 +73,17 @@ cask "font-hack-nerd-font"
 cask "maccy"
 # Reverse proxy, secure introspectable tunnels to localhost
 cask "ngrok"
-# --- not yet installed: the CLI tools, nvim servers and lf previewers the configs above use
+# --- not yet installed: the CLI tools and nvim servers the configs above use
 # Symlink farm manager (installs these dotfiles)
 brew "stow"
 # Modern ls replacement (ls/ll/la/lt aliases)
 brew "eza"
-# cat with syntax highlighting (cat alias, lf preview)
+# cat with syntax highlighting (cat alias)
 brew "bat"
 # Smarter cd (cd alias)
 brew "zoxide"
 # Fuzzy finder (shell key bindings)
 brew "fzf"
-# Terminal file manager (lf function)
-brew "lf"
-# Image preview in the terminal (lf preview)
-brew "chafa"
 # Git pager (core.pager)
 brew "git-delta"
 # Git large file storage (filter "lfs")
