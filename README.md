@@ -55,6 +55,7 @@ after `.zshenv` and would push those entries behind the system paths.
 export NVM_DIR="$HOME/.config/nvm" && mkdir -p "$NVM_DIR"
 PROFILE=/dev/null bash -c 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/HEAD/install.sh | bash'
 nvm install --lts
+brew bundle --file=Brewfile   # again: its npm entries need nvm's node
 
 # composer → ~/.local/bin/composer
 php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
@@ -102,7 +103,11 @@ Then in nvim: plugins install on first start (`vim.pack`), then `:MetalsInstall`
 ```sh
 brew update && brew upgrade          # zsh plugins included
 brew bundle dump --file=Brewfile --force --no-vscode   # after installing something new
+uv tool upgrade --all && npm update -g
 ```
+
+npm globals belong to one Node version: after `nvm install` of a new one, run
+`brew bundle --file=Brewfile` to put them back.
 
 ## Replacing an existing setup
 

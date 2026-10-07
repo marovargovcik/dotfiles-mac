@@ -108,11 +108,12 @@ brew "fd"
 brew "ripgrep"
 # nvim-treesitter builds parsers with it
 brew "tree-sitter-cli"
-# Language servers nvim enables
-brew "typescript-language-server"
-brew "basedpyright"
-brew "oxlint"
-brew "oxfmt"
+# Language servers nvim enables. Not Homebrew's formulas: those pull in
+# Homebrew's node next to nvm's. oxlint and oxfmt come from each project's
+# node_modules; nvim only starts them where the project declares them.
+npm "typescript-language-server"
+npm "typescript"
+uv "basedpyright"
 # Java and Scala tooling (cs java, cs install sbt scalafix; nvim-metals). From
 # coursier's tap: the native `cs` launcher, without Homebrew's openjdk on PATH.
 brew "coursier/formulas/coursier"
