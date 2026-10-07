@@ -174,6 +174,8 @@ zsh -lc 'command -v node java'        # non-interactive login shell has them too
 
 ```sh
 rm -rf ~/.sdkman ~/.deno               # java and sbt come from coursier
+brew uninstall typescript-language-server basedpyright oxlint oxfmt
+brew autoremove                        # Homebrew's node and typescript, now unused
 rm -rf ~/.config/gcloud                # gcloud config and credentials
 rm -rf ~/.config/.wrangler ~/.config/cagent ~/.cagent ~/.mastra ~/.g8
 ```
