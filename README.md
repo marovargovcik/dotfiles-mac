@@ -99,9 +99,9 @@ Then in nvim: plugins install on first start (`vim.pack`), then `:MetalsInstall`
 
 ## 4. Shell notes
 
-- Order in `.zshrc` matters: direnv around the powerlevel10k instant prompt;
-  aliases and zoxide at the very end, because zsh expands aliases while parsing
-  and `alias cd=z` would otherwise leak into nvm's functions.
+- Order in `.zshrc` matters: aliases and zoxide at the very end, because zsh
+  expands aliases while parsing and `alias cd=z` would otherwise leak into
+  nvm's functions.
 - nvm and coursier's JDK are set up in `.zprofile`, so node and java are on PATH
   for non-interactive processes too. nvm is sourced again in `.zshrc` only when
   its function is missing — nested shells inherit PATH but not functions.

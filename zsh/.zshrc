@@ -1,17 +1,11 @@
 # Interactive shell only; PATH and other environment live in .zprofile.
 
-# keep order of direnv and powerlevel10k
-# https://github.com/romkatv/powerlevel10k/issues/702#issuecomment-626222730
-emulate zsh -c "$(direnv export zsh)"
-
 # powerlevel10k (init,theme,config)
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
 source $HOMEBREW_PREFIX/share/powerlevel10k/powerlevel10k.zsh-theme
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-
-emulate zsh -c "$(direnv hook zsh)"
 
 # history
 HISTSIZE=200000

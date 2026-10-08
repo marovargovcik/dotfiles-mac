@@ -22,8 +22,6 @@ brew "bash"
 brew "bats-core"
 # GNU File, Shell, and Text utilities
 brew "coreutils"
-# Load/unload environment variables based on $PWD
-brew "direnv"
 # GitHub command-line tool
 brew "gh"
 # Audit git repos for secrets
