@@ -16,7 +16,7 @@ export PATH="/opt/homebrew/opt/php@8.4/sbin:$PATH"
 # mysql (brew keg)
 export PATH="/opt/homebrew/opt/mysql-client/bin:$PATH"
 
-# coursier: cs itself and the apps it installs (sbt, scalafix)
+# coursier: cs itself and the apps it installs (sbt, scalafix, scalafmt)
 export PATH="$PATH:$HOME/Library/Application Support/Coursier/bin"
 
 # user executables

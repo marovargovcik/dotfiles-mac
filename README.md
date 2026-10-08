@@ -52,7 +52,6 @@ stow refuses to replace an existing file; on a machine with an older setup, see
 | `aerospace` | i3-style tiling; starts `borders` |
 | `herdr` | agent multiplexer, prefix ctrl+space |
 | `tmux` | prefix ctrl+space, vi copy mode into `pbcopy`; no alt bindings, AeroSpace owns alt |
-| `bin` | `scalafmt` wrapper that fetches the version pinned in the project's `.scalafmt.conf` |
 | the rest | app configs; comments in the files say why |
 
 No `~/.zshenv`: nothing needs to run in every zsh, scripts included. PATH is in
@@ -71,7 +70,7 @@ php composer-setup.php --install-dir="$HOME/.local/bin" --filename=composer && r
 curl -fL https://github.com/coursier/coursier/releases/latest/download/cs-aarch64-apple-darwin.gz | gzip -d > /tmp/cs
 chmod +x /tmp/cs && /tmp/cs install cs && rm /tmp/cs
 cs java --jvm zulu:25 -version
-cs install sbt scalafix
+cs install sbt scalafix scalafmt
 
 # Python language server for nvim
 uv tool install basedpyright
@@ -133,7 +132,7 @@ npm install -g corepack yarn typescript-language-server typescript
 curl -fL https://github.com/coursier/coursier/releases/latest/download/cs-aarch64-apple-darwin.gz | gzip -d > /tmp/cs
 chmod +x /tmp/cs && /tmp/cs install cs && rm /tmp/cs
 export PATH="$PATH:$HOME/Library/Application Support/Coursier/bin"   # the old shell lacks it
-cs java --jvm zulu:25 -version && cs install sbt scalafix
+cs java --jvm zulu:25 -version && cs install sbt scalafix scalafmt
 uv tool install basedpyright
 ```
 
@@ -144,8 +143,7 @@ B=~/dotfiles-backup-$(date +%Y%m%d-%H%M%S); mkdir -p "$B"
 for p in .zshenv .zprofile .zshrc .p10k.zsh .profile .config/zsh \
          .gitconfig .config/git .ssh/config .config/gh/config.yml \
          .config/aerospace .config/alacritty .config/kitty .config/lazygit \
-         .config/nvim .config/uv .config/tmux .config/herdr/config.toml \
-         .local/bin/scalafmt; do
+         .config/nvim .config/uv .config/tmux .config/herdr/config.toml; do
   [ -e ~/$p ] || [ -L ~/$p ] || continue
   mkdir -p "$B/$(dirname $p)" && mv ~/$p "$B/$p"
 done
