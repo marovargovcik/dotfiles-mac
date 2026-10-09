@@ -40,9 +40,6 @@ repo.
 `.stowrc` sets the target to `~`: stow's default is the repo's parent
 directory, here `~/Projects`. It is read only when stow runs from the repo.
 
-stow refuses to replace an existing file; on a machine with an older setup, see
-[Replacing an existing setup](#replacing-an-existing-setup).
-
 | Package | Provides |
 |---|---|
 | `zsh` | `.zprofile` is the environment (PATH, nvm, coursier's JDK, `EDITOR`); `.zshrc` is interactive only; `.p10k.zsh` |
@@ -119,76 +116,3 @@ uv tool upgrade --all && npm update -g && cs update
 npm globals belong to one Node version: install a new one with
 `nvm install --lts --reinstall-packages-from=current` to keep them.
 
-## Replacing an existing setup
-
-Everything below is moved, not deleted, into one backup folder.
-
-**1. Install packages while the old shell still works**
-
-```sh
-cd ~/Projects/dotfiles-mac && git pull
-brew bundle --file=Brewfile
-npm install -g corepack yarn typescript-language-server typescript
-curl -fL https://github.com/coursier/coursier/releases/latest/download/cs-aarch64-apple-darwin.gz | gzip -d > /tmp/cs
-chmod +x /tmp/cs && /tmp/cs install cs && rm /tmp/cs
-export PATH="$PATH:$HOME/Library/Application Support/Coursier/bin"   # the old shell lacks it
-cs java --jvm zulu:25 -version && cs install sbt scalafix scalafmt
-uv tool install basedpyright
-```
-
-**2. Back up and clear every path stow will own, plus dead shell files**
-
-```sh
-B=~/dotfiles-backup-$(date +%Y%m%d-%H%M%S); mkdir -p "$B"
-for p in .zshenv .zprofile .zshrc .p10k.zsh .profile .config/zsh \
-         .gitconfig .config/git .ssh/config .config/gh/config.yml \
-         .config/aerospace .config/alacritty .config/kitty .config/lazygit \
-         .config/nvim .config/uv .config/tmux .config/herdr/config.toml; do
-  [ -e ~/$p ] || [ -L ~/$p ] || continue
-  mkdir -p "$B/$(dirname $p)" && mv ~/$p "$B/$p"
-done
-ls -A "$B" "$B/.config"
-```
-
-`~/.config/gh/hosts.yml` (token), `~/.ssh` keys and `~/.config/nvm` stay put.
-
-**3. Restore shell history, then stow**
-
-```sh
-cp "$B/.config/zsh/.zsh_history" ~/.zsh_history 2>/dev/null
-mkdir -p ~/.ssh ~/.local/bin ~/.config/gh ~/.config/herdr   # see §2
-cd ~/Projects/dotfiles-mac && stow */
-```
-
-**4. Check, in a new terminal tab (keep the old one open)**
-
-```sh
-echo $EDITOR                          # nvim
-whence -w nvm z                       # functions
-command -v node java cs claude composer docker tmux herdr
-jq '{theme, editorMode, disableAgentView}' ~/.claude/settings.json
-git config --get core.pager           # delta
-ssh -G github.com | grep -i identityfile
-zsh -lc 'command -v node java'        # non-interactive login shell has them too
-```
-
-**5. Finish up**
-
-- `aerospace reload-config`
-- open nvim (plugins install), then `:MetalsInstall`
-- the Claude Code settings merge and the `herdr integration` line from §3
-- `git lfs install --skip-repo`
-- Docker Desktop: Settings → Advanced → CLI tools in the *System* location, so
-  it stops writing to the shell files
-
-**6. Remove what this setup no longer uses**, once the checks pass
-
-```sh
-rm -rf ~/.sdkman ~/.deno               # java and sbt come from coursier
-rm -rf ~/.config/gcloud                # gcloud config and credentials
-rm -rf ~/.config/homebrew              # trust list; without XDG_CONFIG_HOME it is ~/.homebrew
-rm -rf ~/.config/.wrangler ~/.config/cagent ~/.cagent ~/.mastra ~/.g8
-```
-
-**Undo:** `cd ~/Projects/dotfiles-mac && stow -D */`, then move the files in
-`$B` back. Step 6 is not undoable. When everything works, `rm -rf "$B"`.
