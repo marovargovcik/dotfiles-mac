@@ -1,1 +1,10 @@
 .DS_Store
+
+ssh/**
+!ssh/.ssh/
+!ssh/.ssh/config
+
+gh/**
+!gh/.config/
+!gh/.config/gh/
+!gh/.config/gh/config.yml
