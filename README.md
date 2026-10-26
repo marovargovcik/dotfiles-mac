@@ -28,14 +28,14 @@ Not from Homebrew: Alacritty and 1Password (vendor `.dmg`s into `/Applications`)
 
 ```sh
 git clone git@github.com:marovargovcik/dotfiles-mac.git ~/Projects/dotfiles-mac
-mkdir -p ~/.ssh ~/.local/bin ~/.config/gh ~/.config/herdr && chmod 700 ~/.ssh
+mkdir -p ~/.ssh ~/.local/bin ~/.config/gh ~/.config/herdr ~/.claude && chmod 700 ~/.ssh
 cd ~/Projects/dotfiles-mac && stow */
 ```
 
 **Create those directories first** — stow symlinks any missing directory whole,
 and SSH keys, the `gh` token (`~/.config/gh/hosts.yml`), binaries in
-`~/.local/bin` and herdr's plugins, sockets and logs would then live inside the
-repo.
+`~/.local/bin`, herdr's plugins, sockets and logs, and Claude Code's sessions
+and credentials would then live inside the repo.
 
 `.stowrc` sets the target to `~`: stow's default is the repo's parent
 directory, here `~/Projects`. It is read only when stow runs from the repo.
@@ -48,6 +48,7 @@ directory, here `~/Projects`. It is read only when stow runs from the repo.
 | `gh` | `config.yml` only; `hosts.yml` holds the token and stays out |
 | `aerospace` | i3-style tiling; starts `borders` |
 | `herdr` | agent multiplexer, prefix ctrl+space; `herdr-task`: one worktree workspace per Claude Code task, titled after the conversation, archived and restored with it |
+| `claude` | `~/.claude/CLAUDE.md` only, Claude Code's global instructions (herdr tasks) |
 | `tmux` | prefix ctrl+space, vi copy mode into `pbcopy`; no alt bindings, AeroSpace owns alt |
 | the rest | app configs; comments in the files say why |
 
