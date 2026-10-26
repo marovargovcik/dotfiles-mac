@@ -46,3 +46,5 @@ alias lg='lazygit'
 # zoxide last: it wraps cd, and later inits win.
 eval "$(zoxide init zsh)"
 alias cd='z'
+
+alias cbf='CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1 claude --plugin-dir ~/famly/builder-flow/b --add-dir ~/famly/nuclearfamly'
