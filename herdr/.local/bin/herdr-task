@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# One herdr worktree workspace per task, with Claude Code running in it.
+#
+#   herdr-task new [-p prompt] [branch] [base]
+#                                      worktree + workspace for the repo in $PWD, starts claude on prompt
+#   herdr-task archive [workspace...]  picks tasks with fzf, removes their worktrees (branches stay), logs them
+#   herdr-task archived                lists archived tasks
+#   herdr-task restore                 picks one with fzf: same path, same branch, claude --resume
+#
+# The worktree comes back at the same path, so `claude --resume` finds the
+# conversation: Claude Code keys transcripts by directory. herdr-claude-title
+# names the workspace after the conversation; archive keeps that name.
+#
+# herdr popups (keybindings in config.toml) get the focused workspace as
+# HERDR_ACTIVE_WORKSPACE_ID and its pane's directory as $PWD; they ask for what
+# the command line would take as arguments.
+
+# env bash finds Homebrew's: macOS's /bin/bash 3.2 has no mapfile or ${var,,}.
+set -euo pipefail
+
+log=${XDG_STATE_HOME:-$HOME/.local/state}/herdr-task/archive.tsv
+
+die() { echo "herdr-task: $*" >&2; exit 1; }
+
+# Newest Claude Code session started in a directory.
+session_in() {
+    local dir=$HOME/.claude/projects/${1//[^A-Za-z0-9]/-} f
+    f=$(ls -t -- "$dir"/*.jsonl 2>/dev/null | head -1) || true
+    [ -n "$f" ] && basename "$f" .jsonl || true
+}
+
+# Removes a worktree workspace's worktree (the branch stays) and logs it for
+# restore.
+archive() {
+    local ws=$1 list wt path label
+    list=$(herdr worktree list --workspace "$ws")
+    wt=$(jq -c --arg ws "$ws" '.result.worktrees[] | select(.open_workspace_id == $ws)' <<<"$list")
+    [ "$(jq -r '.is_linked_worktree' <<<"$wt" 2>/dev/null)" = true ] || { echo "herdr-task: $ws is not a worktree workspace" >&2; return 1; }
+    path=$(jq -r '.path' <<<"$wt")
+    label=$(herdr workspace get "$ws" | jq -r '.result.workspace.label')
+    mkdir -p "${log%/*}"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date +%F)" "$(jq -r '.result.source.repo_root' <<<"$list")" \
+        "$(jq -r '.branch' <<<"$wt")" "$path" "$(session_in "$path")" "${label//$'\t'/ }" >>"$log"
+    # Logged first: removing the workspace this runs in may end this script.
+    # herdr refuses a dirty worktree; then the entry goes back out.
+    herdr worktree remove --workspace "$ws" >/dev/null || { sed -i '' '$d' "$log"; return 1; }
+}
+
+# What a worktree has that archiving would set aside, for archive's picker.
+status_of() {
+    local path=$1 agent=$2 pr base ahead n remote out tags=()
+    cd "$path"
+    pr=$(gh pr view --json state -q .state 2>/dev/null) || pr=
+    base=$(git rev-parse --abbrev-ref origin/HEAD 2>/dev/null) || base=main
+    ahead=$(git rev-list --count "$base..HEAD" 2>/dev/null) || ahead=0
+    n=$(($(git status --porcelain | wc -l)))  # BSD wc pads with spaces
+    remote=refs/remotes/origin/$(git branch --show-current)
+    case $agent in working | blocked) tags+=("claude $agent") ;; esac
+    [ "$n" -gt 0 ] && tags+=("$n uncommitted")
+    [ -n "$pr" ] && tags+=("pr ${pr,,}")
+    case $pr in MERGED | CLOSED) ;; *)
+        if [ "$ahead" -gt 0 ]; then
+            tags+=("$ahead ahead")
+            if ! git rev-parse -q --verify "$remote" >/dev/null; then
+                tags+=("not pushed")
+            elif [ "$(git rev-list --count "$remote..HEAD")" -gt 0 ]; then
+                tags+=("$(git rev-list --count "$remote..HEAD") unpushed")
+            fi
+        elif [ "$n" -eq 0 ] && [ -z "$pr" ]; then
+            tags+=(untouched)
+        fi
+        ;;
+    esac
+    printf -v out ' · %s' "${tags[@]}"
+    echo "${out:3}"
+}
+
+# Starts restore's picker on the repo of $PWD, if it's in one; ctrl+u clears it.
+repo_query() {
+    local git
+    git=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 0
+    git=${git%/.git}
+    printf "'%s " "${git##*/}"
+}
+
+case "${1:-}" in
+new)
+    shift
+    prompt=
+    while getopts p: opt; do
+        case $opt in p) prompt=$OPTARG ;; *) exit 2 ;; esac
+    done
+    shift $((OPTIND - 1))
+    branch=${1:-}
+    [ -n "$branch" ] || read -rp 'branch: ' branch
+    [ -n "$branch" ] || exit 0
+    # From the main checkout: herdr refuses to branch a worktree off a linked one.
+    main=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || die "not in a git repo"
+    out=$(herdr worktree create --cwd "${main%/.git}" --branch "$branch" ${2:+--base "$2"} --focus)
+    pane=$(jq -r '.result.root_pane.pane_id' <<<"$out")
+    herdr pane run "$pane" "claude${prompt:+ $(printf %q "$prompt")}" >/dev/null
+    # For whoever handed the task off, to follow it with herdr agent get/read.
+    echo "$pane"
+    ;;
+archive)
+    shift
+    if [ $# -eq 0 ]; then
+        # Every worktree task, statuses fetched in parallel (gh is slow).
+        tasks=$(herdr workspace list | jq -r '.result.workspaces[] | select(.worktree.is_linked_worktree)
+            | [.workspace_id, .worktree.checkout_path, .agent_status, .worktree.repo_name, .label] | @tsv')
+        [ -n "$tasks" ] || die "no worktree tasks"
+        tmp=$(mktemp -d)
+        trap 'rm -rf "$tmp"' EXIT
+        i=0
+        while IFS=$'\t' read -r ws path agent repo label; do
+            i=$((i + 1))
+            { printf '%s\t%-12s %-34.34s %-28s ' "$ws" "$repo" "$label" "$(git -C "$path" branch --show-current)"
+              status_of "$path" "$agent"; } >"$tmp/$(printf %03d $i)" &
+        done <<<"$tasks"
+        wait
+        mapfile -t picked < <(cat "$tmp"/* | fzf --multi --with-nth=2.. --delimiter='\t' --bind=ctrl-a:toggle-all \
+            --header='tab: select  ctrl-a: all  enter: archive' | cut -f1)
+        set -- "${picked[@]}"
+    fi
+    # The focused workspace goes last: removing the workspace this runs in may
+    # end this script.
+    rc=0 last=
+    for ws; do
+        if [ "$ws" = "${HERDR_ACTIVE_WORKSPACE_ID:-}" ]; then last=$ws; else archive "$ws" || rc=1; fi
+    done
+    [ -z "$last" ] || archive "$last" || rc=1
+    exit $rc
+    ;;
+archived)
+    [ -s "$log" ] || { echo "nothing archived"; exit 0; }
+    awk -F'\t' '{ n = split($2, r, "/"); printf "%s  %-14s %-28s %s\n", $1, r[n], $3, $6 }' "$log"
+    ;;
+restore)
+    [ -s "$log" ] || die "nothing archived"
+    n=$(awk -F'\t' '{ k = split($2, r, "/"); printf "%d\t%s  %-14s %-28s %s\n", NR, $1, r[k], $3, $6 }' "$log" |
+        fzf --tac --no-sort --with-nth=2.. --delimiter='\t' --query="$(repo_query)" | cut -f1) || exit 0
+    IFS=$'\t' read -r _ repo branch path session title < <(sed -n "${n}p" "$log")
+    out=$(herdr worktree create --cwd "$repo" --branch "$branch" --path "$path" --label "$title" --focus)
+    herdr pane run "$(jq -r '.result.root_pane.pane_id' <<<"$out")" "claude${session:+ --resume $session}" >/dev/null
+    sed -i '' "${n}d" "$log"
+    ;;
+*)
+    sed -n '3,8s/^# \{0,1\}//p' "$0" >&2
+    exit 2
+    ;;
+esac
