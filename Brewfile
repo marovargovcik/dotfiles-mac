@@ -52,10 +52,14 @@ brew "poppler"
 brew "rumdl"
 # Autoformat shell script source code
 brew "shfmt"
+# Fast SQL formatter/linter
+brew "sqruff"
 # Source code spell checker
 brew "typos-cli"
 # Extremely fast Python package installer and resolver, written in Rust
 brew "uv"
+# Extensible command-line tool to format YAML files
+brew "yamlfmt"
 # UNIX shell (command interpreter)
 brew "zsh"
 # A window border system for macOS
