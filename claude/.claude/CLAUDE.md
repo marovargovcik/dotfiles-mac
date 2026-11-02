@@ -21,6 +21,7 @@ list every place that could take it:
 
 ```sh
 herdr agent list | jq -r '.result.agents[] | "\(.pane_id) \(.agent_status) \(.cwd)"'  # live sessions
+herdr pane list | jq -r '.result.panes[] | select(.agent_status == "unknown") | "\(.pane_id) \(.cwd)"'  # panes with no Claude
 herdr-task archived                                                                   # archived worktree tasks
 ```
 
@@ -28,7 +29,8 @@ The places, most specific first:
 
 - **A task's worktree**: a live session whose cwd is a worktree named after the ticket (`NUX-392` in
   `.../marek-nux-392-...`), or an archived task on that branch
-- **A repo's workspace**: a live session whose cwd is the repo's checkout or a folder in it
+- **A repo's workspace**: a live session whose cwd is the repo's checkout or a folder in it, or, when the workspace
+  has none, a pane there with no Claude running
 - **A new task** with `herdr-task new` (above), for work that will end in commits and that nothing else has
 - **This session**, when it is itself the place
 
@@ -44,6 +46,10 @@ For a live session other than this one:
 2. If the pane is `blocked`, don't send; tell the user it's waiting on them in that pane. If it's `working`, send anyway
    (it queues) and say so.
 3. Report the pane ID and stop. Follow up with `herdr agent read <pane>` only when asked.
+
+For a workspace pane with no Claude running, start one there on the hand-off, as `herdr-task new` does:
+`herdr pane run <pane> "claude $(printf %q "<hand-off>")"`. Use a pane sitting at a shell prompt, not one running a
+server or other command. Then report the pane ID and stop, as above.
 
 For an archived task, bring it back instead of starting a duplicate: `herdr-task restore -p "<hand-off>" NUX-392`
 recreates the worktree at its old path, resumes the task's Claude conversation on the hand-off and prints the pane ID.
