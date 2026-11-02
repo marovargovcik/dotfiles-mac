@@ -16,8 +16,10 @@ task with `herdr agent get <pane>` / `herdr agent read <pane>` when asked.
 
 ## Where a request belongs
 
-Before acting on a request, work out where in herdr it belongs. Don't read code or edit files until you have. These
-list every place that could take it:
+Every request goes through this, not only work that ends in commits: however small (a pull, a status check, one
+command), a request that touches a repo other than this session's own belongs to that repo's place in herdr. This
+session never runs commands in, reads from or changes another repo's checkout itself. Until the request is routed,
+don't run, read or change anything for it. These list every place that could take it:
 
 ```sh
 herdr agent list | jq -r '.result.agents[] | "\(.pane_id) \(.agent_status) \(.cwd)"'  # live sessions
