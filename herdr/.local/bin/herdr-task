@@ -8,6 +8,10 @@
 #   herdr-task restore [-p prompt] [key]
 #                                      the newest archived task whose branch has key (or one picked with fzf):
 #                                      same path, same branch, claude --resume on prompt
+#   herdr-task places <ticket|path|repo>
+#                                      where a request belongs, most specific first: this, task, archived,
+#                                      closed (worktree with no pane), session, shell
+#   herdr-task send <pane> <hand-off>  prompts the pane's Claude, or starts one there; refuses a blocked pane
 #
 # The worktree comes back at the same path, so `claude --resume` finds the
 # conversation: Claude Code keys transcripts by directory. herdr-claude-title
@@ -136,7 +140,71 @@ repo_query() {
     printf "'%s " "${git##*/}"
 }
 
+# Every pane: id, agent status (unknown: no agent running), cwd.
+panes() {
+    herdr pane list | jq -r '.result.panes[] | [.pane_id, .agent_status, .cwd] | @tsv'
+}
+
+# The places a ticket key, path or repo name could go to, one per line:
+# kind, pane or branch, status, path. Kinds rank most specific first.
+places() {
+    local q=$1 key= root= pane status cwd base
+    if [[ $q =~ ^[A-Za-z]+-[0-9]+$ ]]; then
+        key=${q,,}
+    elif [ -e "$q" ]; then
+        root=$(git -C "$q" rev-parse --show-toplevel 2>/dev/null) || root=$(cd "$q" && pwd)
+    else
+        # A repo name: the checkout of a workspace with that repo.
+        root=$(herdr workspace list | jq -r --arg n "$q" '.result.workspaces[]
+            | select(.worktree.repo_name == $n and (.worktree.is_linked_worktree | not))
+            | .worktree.checkout_path' | head -1)
+        [ -n "$root" ] || return 1
+    fi
+    # A ticket key matches as a whole segment of a worktree's name or a branch.
+    has_key() { [[ ${1,,} =~ (^|[/-])$key(-|$) ]]; }
+    {
+        while IFS=$'\t' read -r pane status cwd; do
+            if [ -n "$key" ]; then
+                has_key "${cwd##*/}" || continue
+                [ "$status" = unknown ] && kind=4shell || kind=1task
+            else
+                [ "$cwd" = "$root" ] || [[ $cwd == "$root"/* ]] || continue
+                [ "$status" = unknown ] && kind=4shell || kind=3session
+            fi
+            [ "$pane" = "${HERDR_PANE_ID:-}" ] && kind=0this
+            printf '%s\t%s\t%s\t%s\n' "$kind" "$pane" "$status" "$cwd"
+        done < <(panes)
+        if [ -n "$key" ]; then
+            [ -s "$log" ] && awk -F'\t' -v k="$key" 'tolower($3) ~ ("(^|[/-])" k "(-|$)") {
+                printf "2archived\t%s\t-\t%s\n", $3, $4 }' "$log"
+            # A worktree no pane is in and nothing archived: its pane was closed.
+            while read -r cwd; do
+                base=${cwd##*/}
+                has_key "$base" || continue
+                panes | cut -f3 | grep -qxF "$cwd" && continue
+                printf '2closed\t%s\t-\t%s\n' "$(git -C "$cwd" branch --show-current 2>/dev/null)" "$cwd"
+            done < <(herdr workspace list | jq -r '.result.workspaces[].worktree.repo_root // empty' | sort -u |
+                while read -r r; do git -C "$r" worktree list --porcelain | sed -n 's/^worktree //p'; done)
+        fi
+    } | sort -s -t$'\t' -k1,1 | sed 's/^[0-9]//' | awk -F'\t' '!seen[$1 FS $2]++' | grep .
+}
+
 case "${1:-}" in
+places)
+    [ -n "${2:-}" ] || die "places needs a ticket key, path or repo name"
+    places "$2" | column -t -s$'\t' || die "no place for $2"
+    ;;
+send)
+    pane=${2:-} handoff=${3:-}
+    [ -n "$pane" ] && [ -n "$handoff" ] || die "send needs a pane and a hand-off"
+    status=$(herdr pane get "$pane" | jq -r '.result.pane.agent_status')
+    case $status in
+    blocked) die "$pane is waiting on you; nothing sent" ;;
+    unknown) herdr pane run "$pane" "claude $(printf %q "$handoff")" >/dev/null; echo "$pane: started claude" ;;
+    working) herdr agent prompt "$pane" "$handoff" >/dev/null; echo "$pane: queued (it's working)" ;;
+    *) herdr agent prompt "$pane" "$handoff" >/dev/null; echo "$pane: sent" ;;
+    esac
+    ;;
 new)
     shift
     prompt=
@@ -211,7 +279,7 @@ restore)
     echo "$pane"
     ;;
 *)
-    sed -n '3,10s/^# \{0,1\}//p' "$0" >&2
+    sed -n '3,14s/^# \{0,1\}//p' "$0" >&2
     exit 2
     ;;
 esac
