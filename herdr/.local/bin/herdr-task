@@ -116,11 +116,14 @@ tasks() {
 # archive's picker rows, one per task; with --status, statuses fetched in
 # parallel and printed in task order.
 rows() {
-    local tmp i=0 ws path agent repo label
+    local tmp i=0 ws path agent repo label branch
     tmp=$(mktemp -d)
     while IFS=$'\t' read -r ws path agent repo label; do
         i=$((i + 1))
-        { printf '%s\t%-12s %-34.34s %-28s ' "$ws" "$repo" "$label" "$(git -C "$path" branch --show-current)"
+        # Long branches are cut so the status after them stays in view.
+        branch=$(git -C "$path" branch --show-current)
+        [ ${#branch} -le 28 ] || branch="${branch:0:27}…"
+        { printf '%s\t%-12s %-34.34s %s%*s ' "$ws" "$repo" "$label" "$branch" $((28 - ${#branch})) ''
           if [ "${1:-}" = --status ]; then status_of "$path" "$agent"; else echo; fi
         } >"$tmp/$(printf %03d $i)" &
     done < <(tasks)
