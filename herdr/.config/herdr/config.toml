@@ -45,7 +45,7 @@ status_indicators = "symbols"
 [ui.sidebar.spaces]
 rows = [["state_icon", "workspace"], ["branch", "git_status"]]
 
-# macOS notification when a background agent finishes or needs input;
+# desktop notification when a background agent finishes or needs input;
 # prefix+o jumps to it
 [ui.toast]
 delivery = "system"
