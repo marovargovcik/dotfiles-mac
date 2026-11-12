@@ -5,6 +5,11 @@ Claude session. A session already in a task's worktree does that task in place; 
 including a follow-up, becomes a new task: `herdr-task new -p "<hand-off>" <branch> [base]` from any checkout of the
 repo.
 
+One branch, one worktree. This session commits only to the branch its worktree was created for. Every other branch that
+gets commits, including branches split out of this one or stacked on it, starts with `herdr-task new` and is built in
+that task's session; this session hands off and stops. Splitting a PR: this session plans the split and creates the
+tickets; each slice is built in its own task, with a hand-off naming its base branch and what goes in it.
+
 ## Where a request belongs
 
 Reading anything anywhere is fine: files, `git log`, `gh`, other sessions' output. A request that changes anything in
