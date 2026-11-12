@@ -73,8 +73,6 @@ cask "docker-desktop"
 cask "font-hack-nerd-font"
 # Clipboard manager
 cask "maccy"
-# Reverse proxy, secure introspectable tunnels to localhost
-cask "ngrok"
 # --- not yet installed: the CLI tools and nvim servers the configs above use
 # Symlink farm manager (installs these dotfiles)
 brew "stow"
