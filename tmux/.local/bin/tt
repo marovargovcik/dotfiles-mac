@@ -48,6 +48,8 @@ log=${XDG_STATE_HOME:-$HOME/.local/state}/herdr-task/archive.tsv
 trash_root=${XDG_CACHE_HOME:-$HOME/.cache}/tt/trash
 # What tt up reopens: a line per agent pane, rewritten on every agent state change.
 open=${XDG_STATE_HOME:-$HOME/.local/state}/tt/open.tsv
+# Held while tt up runs. A directory: mkdir either makes it or fails, atomically.
+lock=$open.lock
 worktrees=${TT_WORKTREES:-$HOME/worktrees}
 tab=$'\t'
 # Records are tab-separated, but read splits them on \037: tab is whitespace to
@@ -63,10 +65,11 @@ die() { echo "tt: $*" >&2; exit 1; }
 # ── tmux backend ────────────────────────────────────────────────────────────
 # Everything that talks to tmux. Another multiplexer would replace these.
 
-# The project session of a repo (its main checkout), by tag.
+# The project session of a repo (its main checkout), by tag; none when no
+# server is running.
 mux_project() {
     tmux list-sessions -F "#{session_id}$tab#{@repo}" 2>/dev/null |
-        awk -F'\t' -v r="$1" '$2 == r { print $1; exit }'
+        awk -F'\t' -v r="$1" '$2 == r { print $1; exit }' || true
 }
 
 # Creates a repo's project session with its orchestrator window; prints the
@@ -207,11 +210,11 @@ open_task() {
 
 # Records every agent pane for tt up: session, its @kind and @repo, window
 # @role, @task and name (one tmux names itself after its program is left out),
-# directory, conversation. Not while tt up is restoring:
-# the record would hold only what's back so far. A failed list (the server
-# going down) leaves the record as it was.
+# directory, conversation. Not while tt up is restoring (a lock under two
+# minutes old): the record would hold only what's back so far. A failed list
+# (the server going down) leaves the record as it was.
 save() {
-    [ -z "$(tmux show -gv @tt_restoring 2>/dev/null)" ] || return 0
+    [ -d "$lock" ] && [ -z "$(find "$lock" -maxdepth 0 -mmin +2)" ] && return 0
     mkdir -p "${open%/*}"
     tmux list-panes -a -F "#{session_name}$tab#{@kind}$tab#{@repo}$tab#{@role}$tab#{@task}$tab#{pane_current_path}$tab#{?automatic-rename,,#{window_name}}$tab#{@agent_session}" \
         >"$open.$$" 2>/dev/null && awk -F'\t' '$8 != ""' "$open.$$" >"$open.$$.f" && mv "$open.$$.f" "$open"
@@ -374,13 +377,16 @@ attention() {
 case "${1:-}" in
 up)
     [ -s "$open" ] || exit 0
+    # One at a time: the first session this creates starts the server, whose
+    # config runs tt up as well. A lock left by a killed run expires.
+    find "$lock" -maxdepth 0 -mmin +2 -exec rmdir {} \; 2>/dev/null || true
+    mkdir "$lock" 2>/dev/null || exit 0
+    trap 'rmdir "$lock" 2>/dev/null' EXIT
     mapfile -t records < <(fields <"$open")
-    tmux set -g @tt_restoring 1
-    trap 'tmux set -gu @tt_restoring' EXIT
     for r in "${records[@]}"; do
         IFS=$us read -r sname kind repo role task cwd wname id <<<"$r"
         # Already open, or gone since (an archived worktree).
-        tmux list-panes -a -F '#{@agent_session}' | grep -qxF "$id" && continue
+        tmux list-panes -a -F '#{@agent_session}' 2>/dev/null | grep -qxF "$id" && continue
         [ -n "$task" ] && mux_tasks | cut -f2 | grep -qxF "$cwd" && continue
         [ -d "$cwd" ] || continue
         if [ "$kind" = agent ] && [ -d "$repo" ]; then
@@ -407,8 +413,16 @@ up)
             p=$(tmux new-session -d -P -F '#{pane_id}' -s "$sname" -c "$cwd")
         fi
         [ -z "$wname" ] || tmux rename-window -t "$p" "$wname"
+        # Tagged now, not when claude's hook says so seconds later: another
+        # tt up meanwhile would open it twice.
+        tmux set -p -t "$p" @agent_session "$id"
         mux_run "$p" "claude --resume $id"
     done
+    # Run from a terminal outside tmux: attach to what came back.
+    if [ -z "${TMUX:-}" ] && [ -t 0 ] && tmux has-session 2>/dev/null; then
+        rmdir "$lock" && trap - EXIT
+        exec tmux attach
+    fi
     ;;
 proj)
     dir=${2:-$PWD}
