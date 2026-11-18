@@ -49,7 +49,7 @@ directory, here `~/Projects`. It is read only when stow runs from the repo.
 | `aerospace` | i3-style tiling; starts `borders` |
 | `herdr` | agent multiplexer, prefix ctrl+space; `herdr-task`: one worktree workspace per Claude Code task, titled after the conversation, archived and restored with it |
 | `claude` | `~/.claude/CLAUDE.md` only, Claude Code's global instructions (herdr tasks) |
-| `tmux` | prefix ctrl+space, vi copy mode into `pbcopy`; no alt bindings, AeroSpace owns alt |
+| `tmux` | prefix ctrl+space, vi copy mode; no alt bindings, AeroSpace owns alt. `tt`: a session per repo with Claude Code in `orch`, a window per task in its own worktree, archived and restored with it |
 | the rest | app configs; comments in the files say why |
 
 No `~/.zshenv`: nothing needs to run in every zsh, scripts included. PATH is in
@@ -85,6 +85,16 @@ jq '. + {theme: "dark", editorMode: "vim", disableAgentView: true}
         + [{hooks: [{type: "command", command: "herdr-claude-title", timeout: 10}]}])' "$f" > "$f.new" && mv "$f.new" "$f"
 
 herdr integration install claude   # agent state in the herdr sidebar
+
+# tt's agent state (what tt send, tt attention and the status line read):
+# Claude Code's hooks tag the tmux pane they run in
+jq 'reduce (["SessionStart", null, "start"], ["UserPromptSubmit", null, "working"],
+        ["PostToolUse", null, "working"], ["PermissionRequest", null, "blocked"],
+        ["PreToolUse", "AskUserQuestion", "blocked"], ["Notification", "elicitation_dialog", "blocked"],
+        ["Stop", null, "done"], ["SessionEnd", null, "clear"]) as [$e, $m, $s] (.;
+    .hooks[$e] = ((.hooks[$e] // []) | map(select(.hooks[0].command | startswith("tt state") | not)))
+        + [{hooks: [{type: "command", command: "tt state \($s)", timeout: 5}]} + if $m then {matcher: $m} else {} end])' \
+    "$f" > "$f.new" && mv "$f.new" "$f"
 
 git lfs install --skip-repo
 gh auth login
