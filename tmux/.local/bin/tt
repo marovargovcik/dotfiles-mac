@@ -2,6 +2,8 @@
 # tt: tmux tasks. A tmux session per repo, a window per task, each task in its
 # own git worktree with Claude Code running in it.
 #
+#   tt up                              reopens what was open (after a reboot or a killed server): every session's
+#                                      agent windows, each resuming its own conversation; tmux runs it on start
 #   tt proj [dir]                      the repo's session: claude in window "orch" (the main checkout) and in
 #                                      a window per worktree; creates what's missing, then switches to it
 #   tt new [-p prompt] [branch] [base] worktree + window for the repo in $PWD, starts claude on prompt
@@ -44,6 +46,8 @@ set -euo pipefail
 # Shared with herdr-task while both are in use, so either can restore the other's tasks.
 log=${XDG_STATE_HOME:-$HOME/.local/state}/herdr-task/archive.tsv
 trash_root=${XDG_CACHE_HOME:-$HOME/.cache}/tt/trash
+# What tt up reopens: a line per agent pane, rewritten on every agent state change.
+open=${XDG_STATE_HOME:-$HOME/.local/state}/tt/open.tsv
 worktrees=${TT_WORKTREES:-$HOME/worktrees}
 tab=$'\t'
 # Records are tab-separated, but read splits them on \037: tab is whitespace to
@@ -201,6 +205,19 @@ open_task() {
     echo "$p"
 }
 
+# Records every agent pane for tt up: session, its @kind and @repo, window
+# @role, @task and name (one tmux names itself after its program is left out),
+# directory, conversation. Not while tt up is restoring:
+# the record would hold only what's back so far. A failed list (the server
+# going down) leaves the record as it was.
+save() {
+    [ -z "$(tmux show -gv @tt_restoring 2>/dev/null)" ] || return 0
+    mkdir -p "${open%/*}"
+    tmux list-panes -a -F "#{session_name}$tab#{@kind}$tab#{@repo}$tab#{@role}$tab#{@task}$tab#{pane_current_path}$tab#{?automatic-rename,,#{window_name}}$tab#{@agent_session}" \
+        >"$open.$$" 2>/dev/null && awk -F'\t' '$8 != ""' "$open.$$" >"$open.$$.f" && mv "$open.$$.f" "$open"
+    rm -f "$open.$$"
+}
+
 # Drops a line from the archive log. Not sed -i: GNU and BSD sed spell it differently.
 log_drop() { sed "$1d" "$log" >"$log.tmp" && mv "$log.tmp" "$log"; }
 
@@ -355,6 +372,44 @@ attention() {
 # ── commands ────────────────────────────────────────────────────────────────
 
 case "${1:-}" in
+up)
+    [ -s "$open" ] || exit 0
+    mapfile -t records < <(fields <"$open")
+    tmux set -g @tt_restoring 1
+    trap 'tmux set -gu @tt_restoring' EXIT
+    for r in "${records[@]}"; do
+        IFS=$us read -r sname kind repo role task cwd wname id <<<"$r"
+        # Already open, or gone since (an archived worktree).
+        tmux list-panes -a -F '#{@agent_session}' | grep -qxF "$id" && continue
+        [ -n "$task" ] && mux_tasks | cut -f2 | grep -qxF "$cwd" && continue
+        [ -d "$cwd" ] || continue
+        if [ "$kind" = agent ] && [ -d "$repo" ]; then
+            s=$(mux_project "$repo")
+            if [ -z "$s" ]; then
+                p=$(mux_create_project "$repo")
+                s=$(mux_project "$repo")
+                # The new session's own orch takes the first orchestrator; with
+                # none recorded, it resumes the newest conversation, as tt proj does.
+                if [ "$role" != orchestrator ]; then mux_run "$p" "$(agent_cmd "$repo" resume '')"; p=; fi
+            else
+                p=
+            fi
+            if [ -z "$p" ]; then
+                case $role in
+                orchestrator) p=$(mux_create_orch "$s" "$repo") ;;
+                *) if [ -n "$task" ]; then p=$(mux_create_task "$s" "$cwd" "$task")
+                   else p=$(tmux new-window -d -P -F '#{pane_id}' -t "$s:" -c "$cwd"); fi ;;
+                esac
+            fi
+        elif tmux has-session -t "=$sname" 2>/dev/null; then
+            p=$(tmux new-window -d -P -F '#{pane_id}' -t "=$sname:" -c "$cwd")
+        else
+            p=$(tmux new-session -d -P -F '#{pane_id}' -s "$sname" -c "$cwd")
+        fi
+        [ -z "$wname" ] || tmux rename-window -t "$p" "$wname"
+        mux_run "$p" "claude --resume $id"
+    done
+    ;;
 proj)
     dir=${2:-$PWD}
     root=$(repo_root "$dir") || die "$dir is not in a git repo"
@@ -531,6 +586,7 @@ state)
         [ -z "$cur" ] || [ "$source" != startup ] || exit 0
         tmux set "${p[@]}" @agent "$agent" \; set "${p[@]}" @agent_session "$sid" \; \
             set -u "${p[@]}" @agent_state \; set -u "${p[@]}" @agent_since \; set -u "${p[@]}" @agent_seen
+        save
         exit 0
     fi
     # Events from any other session in this pane are someone else's.
@@ -546,12 +602,13 @@ state)
         if [ "$visible" = 1 ]; then seen=(set "${p[@]}" @agent_seen 1); else seen=(set -u "${p[@]}" @agent_seen); fi
         tmux set "${p[@]}" @agent "$agent" \; set "${p[@]}" @agent_state "$new" \; \
             set "${p[@]}" @agent_since "$(date +%s)" \; "${seen[@]}"
+        save
         ;;
     *) die "state is start, working, done, blocked or clear" ;;
     esac
     ;;
 *)
-    sed -n '5,21s/^# \{0,1\}//p' "$0" >&2
+    sed -n '5,23s/^# \{0,1\}//p' "$0" >&2
     exit 2
     ;;
 esac
