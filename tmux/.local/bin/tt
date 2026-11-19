@@ -15,8 +15,6 @@
 #                                      closed (worktree with no window), session, shell
 #   tt send <pane> <hand-off>          prompts the pane's agent, or starts claude there; refuses a blocked pane
 #   tt read <pane> [lines]             what the pane shows, plus its scrollback
-#   tt pick                            fuzzy-finds any pane: enter goes there, ctrl-x kills its window, ctrl-s
-#                                      its session
 #   tt attention                       picks a pane: blocked agents first, then finished ones not looked at yet
 #   tt count                           the same, as a status-line counter
 #   tt orch [session [window]]         goes to the session's next orchestrator window after window
@@ -361,15 +359,6 @@ places() {
     } | sort -s -t"$tab" -k1,1 | sed 's/^[0-9]//' | awk -F'\t' '!seen[$1 FS $2]++' | grep .
 }
 
-# pick's rows, one per pane: pane, then session:window.pane, window name, role,
-# agent and state (or the program), and Claude's conversation title (or the
-# directory).
-pick_rows() {
-    tmux list-panes -a -F "#{pane_id}$tab#{session_name}:#{window_index}.#{pane_index}$tab#{window_name}$tab#{?#{==:#{@role},orchestrator},◆ orchestrator,#{?#{@task},task,}}$tab#{?#{@agent},#{@agent} #{?#{@agent_state},#{@agent_state},idle},#{pane_current_command}}$tab$title$tab#{b:pane_current_path}" |
-        awk -F'\t' '{ sub(/^[^[:alnum:]]+ /, "", $6)
-            printf "%s\t%-18s %-26.26s %-14s %-15s %s\n", $1, $2, $3, $4, $5, ($6 != "" ? $6 : $7) }'
-}
-
 # Panes with an agent state, most urgent first: blocked, then done and not
 # looked at, then working, then done and seen; oldest first within each.
 # pane, state, age, session:window, role, title.
@@ -556,26 +545,6 @@ read)
     # -J joins wrapped lines; -S starts that many lines back in the scrollback.
     tmux capture-pane -p -J -t "$2" -S "-${3:-200}" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'
     ;;
-pick)
-    self=$(printf %q "$0")
-    keys='enter: go  ctrl-x: kill window  ctrl-s: kill session'
-    pane=$(pick_rows | fzf --with-nth=2.. --delimiter='\t' --header="$keys" \
-        --bind="ctrl-x:execute($self _kill window {1})+reload($self _pick-rows)" \
-        --bind="ctrl-s:execute($self _kill session {1})+reload($self _pick-rows)" | cut -f1) || exit 0
-    mux_focus "$pane"
-    ;;
-_pick-rows)
-    pick_rows
-    ;;
-_kill)
-    # kill-window and kill-session, not the tree's x: in tmux 3.8, x on the
-    # session the tree runs in crashes the server.
-    what=$2 pane=$3
-    fmt='#{session_name}' && [ "$what" = window ] && fmt='#{session_name}:#{window_name}'
-    read -rp "kill $what $(tmux display -p -t "$pane" "$fmt")? [y/N] " answer </dev/tty
-    [ "$answer" = y ] && tmux "kill-$what" -t "$pane"
-    exit 0
-    ;;
 attention)
     rows=$(attention)
     [ -n "$rows" ] || { echo "no agents"; read -r _; exit 0; }
@@ -653,7 +622,7 @@ state)
     esac
     ;;
 *)
-    sed -n '5,25s/^# \{0,1\}//p' "$0" >&2
+    sed -n '5,23s/^# \{0,1\}//p' "$0" >&2
     exit 2
     ;;
 esac
