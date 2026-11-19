@@ -52,7 +52,7 @@ trash_root=${XDG_CACHE_HOME:-$HOME/.cache}/tt/trash
 open=${XDG_STATE_HOME:-$HOME/.local/state}/tt/open.tsv
 # Held while tt up runs. A directory: mkdir either makes it or fails, atomically.
 lock=$open.lock
-worktrees=${TT_WORKTREES:-$HOME/worktrees}
+worktrees=${TT_WORKTREES:-$HOME/.worktrees}
 tab=$'\t'
 # Records are tab-separated, but read splits them on \037: tab is whitespace to
 # read, so an empty field between two tabs would vanish and shift the rest.
