@@ -16,7 +16,7 @@
 #   tt send <pane> <hand-off>          prompts the pane's agent, or starts claude there; refuses a blocked pane
 #   tt read <pane> [lines]             what the pane shows, plus its scrollback
 #   tt pick                            fuzzy-finds a session, window or pane: enter goes there, ctrl-x kills
-#                                      that row, ctrl-s the row's whole session
+#                                      that row, ctrl-s the row's whole session; previews the row's pane
 #   tt attention                       picks a pane: blocked agents first, then finished ones not looked at yet
 #   tt count                           the same, as a status-line counter
 #   tt orch [session [window]]         goes to the session's next orchestrator window after window
@@ -577,11 +577,20 @@ pick)
     keys='enter: go  ctrl-x: kill this row  ctrl-s: kill its session'
     target=$(pick_rows | fzf --no-sort --with-nth=2.. --delimiter='\t' --header="$keys" \
         --bind="ctrl-x:execute($self _kill row {1})+reload($self _pick-rows)" \
-        --bind="ctrl-s:execute($self _kill session {1})+reload($self _pick-rows)" | cut -f1) || exit 0
+        --bind="ctrl-s:execute($self _kill session {1})+reload($self _pick-rows)" \
+        --preview="$self _preview {1}" --preview-window=right,50%,follow | cut -f1) || exit 0
     mux_focus "$target"
     ;;
 _pick-rows)
     pick_rows
+    ;;
+_preview)
+    # The row's pane as it looks now (a session or window shows its active
+    # pane), without the blank lines below the last output, so following the
+    # end shows the latest of it.
+    tmux capture-pane -ep -t "$2" 2>/dev/null |
+        awk '{ t = $0; gsub(/\033\[[0-9;]*m|[[:space:]]/, "", t) }
+             t == "" { b++; next } { for (; b > 0; b--) print ""; print }'
     ;;
 _kill)
     # kill-window and kill-session, not the tree's x: in tmux 3.8, x on the
