@@ -48,7 +48,7 @@ directory, here `~/Projects`. It is read only when stow runs from the repo.
 | `gh` | `config.yml` only; `hosts.yml` holds the token and stays out |
 | `aerospace` | i3-style tiling; starts `borders` |
 | `claude` | `~/.claude/CLAUDE.md` only, Claude Code's global instructions (tt tasks) |
-| `tmux` | prefix ctrl+space, vi copy mode; no alt bindings, AeroSpace owns alt. `tt`: a session per repo with Claude Code in `orch`, a window per task in its own worktree, archived and restored with it |
+| `tmux` | prefix ctrl+space, vi copy mode; no alt bindings, AeroSpace owns alt. prefix+e picks text from the pane (extrakto). `tt`: a session per repo with Claude Code in `orch`, a window per task in its own worktree, archived and restored with it |
 | the rest | app configs; comments in the files say why |
 
 No `~/.zshenv`: nothing needs to run in every zsh, scripts included. PATH is in
@@ -71,6 +71,9 @@ cs install sbt scalafix scalafmt
 
 # Python language server for nvim
 uv tool install basedpyright
+
+# tmux plugins (TPM): clone it, then prefix+I in tmux installs the rest
+git clone https://github.com/tmux-plugins/tpm ~/.local/share/tmux/plugins/tpm
 
 # claude → ~/.local/bin/claude
 curl -fsSL https://claude.ai/install.sh | bash
