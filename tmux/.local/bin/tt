@@ -45,8 +45,7 @@
 # tools alike: no sed -i, no stat, no GNU-only flags.
 set -euo pipefail
 
-# Shared with herdr-task while both are in use, so either can restore the other's tasks.
-log=${XDG_STATE_HOME:-$HOME/.local/state}/herdr-task/archive.tsv
+log=${XDG_STATE_HOME:-$HOME/.local/state}/tt/archive.tsv
 trash_root=${XDG_CACHE_HOME:-$HOME/.cache}/tt/trash
 # What tt up reopens: a line per agent pane, rewritten on every agent state change.
 open=${XDG_STATE_HOME:-$HOME/.local/state}/tt/open.tsv

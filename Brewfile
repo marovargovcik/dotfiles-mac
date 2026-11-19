@@ -95,8 +95,6 @@ brew "ripgrep"
 brew "tree-sitter-cli"
 # Terminal multiplexer
 brew "tmux"
-# Agent multiplexer (herdr package)
-brew "herdr"
 # zsh prompt and plugins (.zshrc sources them from $HOMEBREW_PREFIX)
 brew "powerlevel10k"
 brew "zsh-autosuggestions"

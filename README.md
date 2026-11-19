@@ -28,13 +28,13 @@ Not from Homebrew: Alacritty and 1Password (vendor `.dmg`s into `/Applications`)
 
 ```sh
 git clone git@github.com:marovargovcik/dotfiles-mac.git ~/Projects/dotfiles-mac
-mkdir -p ~/.ssh ~/.local/bin ~/.config/gh ~/.config/herdr ~/.claude && chmod 700 ~/.ssh
+mkdir -p ~/.ssh ~/.local/bin ~/.config/gh ~/.claude && chmod 700 ~/.ssh
 cd ~/Projects/dotfiles-mac && stow */
 ```
 
 **Create those directories first** — stow symlinks any missing directory whole,
 and SSH keys, the `gh` token (`~/.config/gh/hosts.yml`), binaries in
-`~/.local/bin`, herdr's plugins, sockets and logs, and Claude Code's sessions
+`~/.local/bin`, and Claude Code's sessions
 and credentials would then live inside the repo.
 
 `.stowrc` sets the target to `~`: stow's default is the repo's parent
@@ -47,8 +47,7 @@ directory, here `~/Projects`. It is read only when stow runs from the repo.
 | `ssh` | `~/.ssh/config` only — never a key. Includes `~/.famlydev/ssh_config`, written by the Famly dev tooling |
 | `gh` | `config.yml` only; `hosts.yml` holds the token and stays out |
 | `aerospace` | i3-style tiling; starts `borders` |
-| `herdr` | agent multiplexer, prefix ctrl+space; `herdr-task`: one worktree workspace per Claude Code task, titled after the conversation, archived and restored with it |
-| `claude` | `~/.claude/CLAUDE.md` only, Claude Code's global instructions (herdr tasks) |
+| `claude` | `~/.claude/CLAUDE.md` only, Claude Code's global instructions (tt tasks) |
 | `tmux` | prefix ctrl+space, vi copy mode; no alt bindings, AeroSpace owns alt. `tt`: a session per repo with Claude Code in `orch`, a window per task in its own worktree, archived and restored with it |
 | the rest | app configs; comments in the files say why |
 
@@ -80,11 +79,7 @@ curl -fsSL https://claude.ai/install.sh | bash
 # package: on this machine the file also holds the organization's plugins and
 # permissions, which stay out of the repo.
 f=~/.claude/settings.json; mkdir -p ~/.claude; [ -s "$f" ] || echo '{}' > "$f"
-jq '. + {theme: "dark", editorMode: "vim", disableAgentView: true}
-    | .hooks.Stop = ((.hooks.Stop // []) | map(select(.hooks[0].command != "herdr-claude-title"))
-        + [{hooks: [{type: "command", command: "herdr-claude-title", timeout: 10}]}])' "$f" > "$f.new" && mv "$f.new" "$f"
-
-herdr integration install claude   # agent state in the herdr sidebar
+jq '. + {theme: "dark", editorMode: "vim", disableAgentView: true}' "$f" > "$f.new" && mv "$f.new" "$f"
 
 # tt's agent state (what tt send, tt pick and the status line read):
 # Claude Code's hooks tag the tmux pane they run in
