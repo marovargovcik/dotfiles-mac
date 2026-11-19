@@ -7,7 +7,8 @@
 #   tt proj [dir]                      the repo's session: claude in window "orch" (the main checkout) and in
 #                                      a window per worktree; creates what's missing, then switches to it
 #   tt new [-p prompt] [branch] [base] worktree + window for the repo in $PWD, starts claude on prompt
-#   tt archive [window...]             picks tasks with fzf, removes their worktrees (branches stay), logs them
+#   tt archive [window...]             picks tasks with fzf, removes their worktrees (branches stay), logs them;
+#                                      previews the highlighted task's pane
 #   tt archived                        lists archived tasks
 #   tt restore [-p prompt] [key]       the newest archived task whose branch has key (or one picked with fzf):
 #                                      same path, same branch, claude --resume on prompt
@@ -510,7 +511,8 @@ archive)
         keys='tab: select  ctrl-a: all  enter: archive'
         mapfile -t picked < <(rows | fzf --multi --with-nth=2.. --delimiter='\t' --id-nth=1 \
             --bind=ctrl-a:toggle-all --header="$keys  (loading status…)" \
-            --bind="start:reload-sync($(printf %q "$0") _archive-rows --status)+change-header($keys)" | cut -f1)
+            --bind="start:reload-sync($(printf %q "$0") _archive-rows --status)+change-header($keys)" \
+            --preview="$(printf %q "$0") _preview {1}" --preview-window=right,50%,follow | cut -f1)
         set -- "${picked[@]}"
     fi
     rc=0
