@@ -54,6 +54,9 @@ open=${XDG_STATE_HOME:-$HOME/.local/state}/tt/open.tsv
 # Held while tt up runs. A directory: mkdir either makes it or fails, atomically.
 lock=$open.lock
 worktrees=${TT_WORKTREES:-$HOME/.worktrees}
+# Open pickers listen here, a socket each named <kind>.<pid>.sock, to reload
+# when an agent's state changes.
+pickers=${TMPDIR:-/tmp}/tt-$(id -u)
 tab=$'\t'
 # Records are tab-separated, but read splits them on \037: tab is whitespace to
 # read, so an empty field between two tabs would vanish and shift the rest.
@@ -226,6 +229,29 @@ save() {
     tmux list-panes -a -F "#{session_name}$tab#{@kind}$tab#{@repo}$tab#{@role}$tab#{@task}$tab#{pane_current_path}$tab#{?automatic-rename,,#{window_name}}$tab#{@agent_session}" \
         >"$open.$$" 2>/dev/null && awk -F'\t' '$8 != ""' "$open.$$" >"$open.$$.f" && mv "$open.$$.f" "$open"
     rm -f "$open.$$"
+}
+
+# fzf options for a picker that reloads with tt _<kind>-rows when told to
+# (tt _notify); --id-nth keeps the cursor on its row across a reload. The
+# socket goes when tt exits.
+live() {
+    mkdir -p "$pickers"
+    sock=$pickers/$1.$$.sock
+    trap 'rm -f "$sock"' EXIT
+    live_opts=(--listen="$sock" --id-nth=1)
+}
+
+# Tells every open picker to reload, in the background so a hook doesn't wait.
+# A socket nothing answers on is left over from a picker that died: it goes.
+notify() {
+    local s kind self
+    self=$(printf %q "$0")
+    for s in "$pickers"/*.sock; do
+        [ -S "$s" ] || continue
+        kind=${s##*/} kind=${kind%%.*}
+        curl -s -o /dev/null --max-time 2 --unix-socket "$s" http://localhost \
+            -d "reload-sync($self _$kind-rows)" || rm -f "$s"
+    done >/dev/null 2>&1 &
 }
 
 # Drops a line from the archive log. Not sed -i: GNU and BSD sed spell it differently.
@@ -420,6 +446,15 @@ attention() {
         sort -t"$tab" -k1,1n -k2,2n | cut -f3-
 }
 
+# attention's rows for fzf: pane, then icon, state, age, session:window, role, title.
+attention_rows() {
+    attention | awk -F'\t' -v OFS='\t' '{
+        icon = $2 == "blocked" ? "⚠" : $2 == "done" ? "✓" : "…"
+        age = $3 < 60 ? $3 "s" : $3 < 3600 ? int($3 / 60) "m" : int($3 / 3600) "h"
+        sub(/^[^[:alnum:]]+ /, "", $6)
+        print $1, sprintf("%s %-8s %4s  %-40.40s %s%s", icon, $2, age, $4, $5 == "orchestrator" ? "◆ " : "", $6) }'
+}
+
 # ── commands ────────────────────────────────────────────────────────────────
 
 case "${1:-}" in
@@ -597,7 +632,8 @@ read)
 pick)
     self=$(printf %q "$0")
     keys='enter: go  ctrl-x: kill this row  ctrl-s: kill its session'
-    target=$(pick_rows | fzf --ansi --no-sort --with-nth=2.. --delimiter='\t' --header="$keys" \
+    live pick
+    target=$(pick_rows | fzf "${live_opts[@]}" --ansi --no-sort --with-nth=2.. --delimiter='\t' --header="$keys" \
         --bind="ctrl-x:execute($self _kill row {1})+reload($self _pick-rows)" \
         --bind="ctrl-s:execute($self _kill session {1})+reload($self _pick-rows)" \
         --preview="$self _preview {1}" --preview-window=right,50%,follow | cut -f1) || exit 0
@@ -630,15 +666,17 @@ _kill)
     exit 0
     ;;
 attention)
-    rows=$(attention)
+    rows=$(attention_rows)
     [ -n "$rows" ] || { echo "no agents"; read -r _; exit 0; }
-    pane=$(awk -F'\t' -v OFS='\t' '{
-            icon = $2 == "blocked" ? "⚠" : $2 == "done" ? "✓" : "…"
-            age = $3 < 60 ? $3 "s" : $3 < 3600 ? int($3 / 60) "m" : int($3 / 3600) "h"
-            sub(/^[^[:alnum:]]+ /, "", $6)
-            print $1, sprintf("%s %-8s %4s  %-40.40s %s%s", icon, $2, age, $4, $5 == "orchestrator" ? "◆ " : "", $6) }' <<<"$rows" |
-        fzf --no-sort --with-nth=2.. --delimiter='\t' | cut -f1) || exit 0
+    live attention
+    pane=$(fzf --no-sort --with-nth=2.. --delimiter='\t' "${live_opts[@]}" <<<"$rows" | cut -f1) || exit 0
     mux_focus "$pane"
+    ;;
+_attention-rows)
+    attention_rows
+    ;;
+_notify)
+    notify
     ;;
 orch)
     case ${2:-} in
@@ -685,6 +723,7 @@ state)
         tmux set "${p[@]}" @agent "$agent" \; set "${p[@]}" @agent_session "$sid" \; \
             set -u "${p[@]}" @agent_state \; set -u "${p[@]}" @agent_since \; set -u "${p[@]}" @agent_seen
         save
+        notify
         exit 0
     fi
     # Events from any other session in this pane are someone else's.
@@ -704,6 +743,7 @@ state)
         ;;
     *) die "state is start, working, done, blocked or clear" ;;
     esac
+    notify
     ;;
 *)
     sed -n '5,25s/^# \{0,1\}//p' "$0" >&2
