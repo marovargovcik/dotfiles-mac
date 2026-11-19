@@ -18,8 +18,7 @@
 #   tt read <pane> [lines]             what the pane shows, plus its scrollback
 #   tt pick                            fuzzy-finds a session, window or pane: enter goes there, ctrl-x kills
 #                                      that row, ctrl-s the row's whole session; previews the row's pane
-#   tt attention                       picks a pane: blocked agents first, then finished ones not looked at yet
-#   tt count                           the same, as a status-line counter
+#   tt count                           blocked agents and finished ones not looked at yet, as a status-line counter
 #   tt orch [session [window]]         goes to the session's next orchestrator window after window
 #   tt orch new [dir [client]]         another orchestrator window in the repo's main checkout, claude in it
 #   tt state <start|working|done|blocked|clear> [agent]
@@ -37,7 +36,7 @@
 #   session  @kind agent, @repo <main checkout>   the rest of tmux stays plain tmux
 #   window   @role orchestrator                   "orch", in the main checkout; any number of them
 #   window   @task <branch>, @task_path <path>    a task
-#   pane     @agent, @agent_state, @agent_since, @agent_seen, @agent_session   set by the agent's hooks
+#   pane     @agent, @agent_state, @agent_seen, @agent_session   set by the agent's hooks
 #
 # The worktree comes back at the same path, so `claude --resume` finds the
 # conversation: Claude Code keys transcripts by directory.
@@ -433,28 +432,6 @@ pick_rows() {
         END { flushs() }'
 }
 
-# Panes with an agent state, most urgent first: blocked, then done and not
-# looked at, then working, then done and seen; oldest first within each.
-# pane, state, age, session:window, role, title.
-attention() {
-    local now
-    now=$(date +%s)
-    tmux list-panes -a -F "#{@agent_state}$tab#{@agent_since}$tab#{@agent_seen}$tab#{pane_id}$tab#{session_name}:#{window_name}$tab#{@role}$tab$title" 2>/dev/null |
-        awk -F'\t' -v OFS='\t' -v now="$now" '$1 != "" {
-            rank = $1 == "blocked" ? 0 : ($1 == "done" && $3 == "") ? 1 : $1 == "working" ? 2 : 3
-            print rank, $2, $4, $1, now - $2, $5, $6, $7 }' |
-        sort -t"$tab" -k1,1n -k2,2n | cut -f3-
-}
-
-# attention's rows for fzf: pane, then icon, state, age, session:window, role, title.
-attention_rows() {
-    attention | awk -F'\t' -v OFS='\t' '{
-        icon = $2 == "blocked" ? "⚠" : $2 == "done" ? "✓" : "…"
-        age = $3 < 60 ? $3 "s" : $3 < 3600 ? int($3 / 60) "m" : int($3 / 3600) "h"
-        sub(/^[^[:alnum:]]+ /, "", $6)
-        print $1, sprintf("%s %-8s %4s  %-40.40s %s%s", icon, $2, age, $4, $5 == "orchestrator" ? "◆ " : "", $6) }'
-}
-
 # ── commands ────────────────────────────────────────────────────────────────
 
 case "${1:-}" in
@@ -665,16 +642,6 @@ _kill)
     [ "$answer" = y ] && tmux "kill-$what" -t "$target"
     exit 0
     ;;
-attention)
-    rows=$(attention_rows)
-    [ -n "$rows" ] || { echo "no agents"; read -r _; exit 0; }
-    live attention
-    pane=$(fzf --no-sort --with-nth=2.. --delimiter='\t' "${live_opts[@]}" <<<"$rows" | cut -f1) || exit 0
-    mux_focus "$pane"
-    ;;
-_attention-rows)
-    attention_rows
-    ;;
 _notify)
     notify
     ;;
@@ -721,7 +688,7 @@ state)
         # from inside the agent starts a session too. /clear and /resume switch it.
         [ -z "$cur" ] || [ "$source" != startup ] || exit 0
         tmux set "${p[@]}" @agent "$agent" \; set "${p[@]}" @agent_session "$sid" \; \
-            set -u "${p[@]}" @agent_state \; set -u "${p[@]}" @agent_since \; set -u "${p[@]}" @agent_seen
+            set -u "${p[@]}" @agent_state \; set -u "${p[@]}" @agent_seen
         save
         notify
         exit 0
@@ -731,14 +698,13 @@ state)
     case $new in
     clear)
         tmux set -u "${p[@]}" @agent \; set -u "${p[@]}" @agent_session \; set -u "${p[@]}" @agent_state \; \
-            set -u "${p[@]}" @agent_since \; set -u "${p[@]}" @agent_seen
+            set -u "${p[@]}" @agent_seen
         ;;
     working | done | blocked)
         [ "$new" = "$cur_state" ] && exit 0
         # Seen right away when someone is looking at the pane.
         if [ "$visible" = 1 ]; then seen=(set "${p[@]}" @agent_seen 1); else seen=(set -u "${p[@]}" @agent_seen); fi
-        tmux set "${p[@]}" @agent "$agent" \; set "${p[@]}" @agent_state "$new" \; \
-            set "${p[@]}" @agent_since "$(date +%s)" \; "${seen[@]}"
+        tmux set "${p[@]}" @agent "$agent" \; set "${p[@]}" @agent_state "$new" \; "${seen[@]}"
         save
         ;;
     *) die "state is start, working, done, blocked or clear" ;;

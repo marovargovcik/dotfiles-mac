@@ -86,7 +86,7 @@ jq '. + {theme: "dark", editorMode: "vim", disableAgentView: true}
 
 herdr integration install claude   # agent state in the herdr sidebar
 
-# tt's agent state (what tt send, tt attention and the status line read):
+# tt's agent state (what tt send, tt pick and the status line read):
 # Claude Code's hooks tag the tmux pane they run in
 jq 'reduce (["SessionStart", null, "start"], ["UserPromptSubmit", null, "working"],
         ["PostToolUse", null, "working"], ["PermissionRequest", null, "blocked"],
