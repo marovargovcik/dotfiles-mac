@@ -619,12 +619,32 @@ _pick-rows)
     pick_rows
     ;;
 _preview)
-    # The row's pane as it looks now (a session or window shows its active
-    # pane), without the blank lines below the last output, so following the
-    # end shows the latest of it.
-    tmux capture-pane -ep -t "$2" 2>/dev/null |
-        awk '{ t = $0; gsub(/\033\[[0-9;]*m|[[:space:]]/, "", t) }
-             t == "" { b++; next } { for (; b > 0; b--) print ""; print }'
+    # The row's pane as it looks now, without the blank lines below the last
+    # output, so following the end shows the latest of it. A session shows its
+    # active window; a window split into several panes shows each of them
+    # stacked, the tail of each under a tag naming it, like the tree does.
+    capture() {
+        tmux capture-pane -ep -t "$1" 2>/dev/null |
+            awk '{ t = $0; gsub(/\033\[[0-9;]*m|[[:space:]]/, "", t) }
+                 t == "" { b++; next } { for (; b > 0; b--) print ""; print }'
+    }
+    if [[ $2 == %* ]] || [ "$(tmux display -p -t "$2" '#{window_panes}' 2>/dev/null)" -le 1 ]; then
+        capture "$2"
+        exit 0
+    fi
+    mapfile -t panes < <(tmux list-panes -t "$2" -F "#{pane_id}$tab#{session_name}:#{window_index}.#{pane_index}$tab#{?#{@agent},#{@agent} #{?#{@agent_state},#{@agent_state},idle},#{pane_current_command}}$tab#{b:pane_current_path}$tab#{pane_active}")
+    rows=${FZF_PREVIEW_LINES:-40} cols=${FZF_PREVIEW_COLUMNS:-80}
+    each=$(( rows / ${#panes[@]} - 1 ))
+    (( each < 1 )) && each=1
+    for p in "${panes[@]}"; do
+        IFS=$tab read -r id name what dir active <<<"$p"
+        tag=" $name  $what  $dir "
+        [ "$active" = 1 ] && tag+=" ◀ active "
+        printf '\033[7m%-*.*s\033[0m\n' "$cols" "$cols" "$tag"
+        mapfile -t out < <(capture "$id" | tail -n "$each")
+        (( ${#out[@]} )) && printf '%s\033[0m\n' "${out[@]}"
+        for (( i = ${#out[@]}; i < each; i++ )); do echo; done
+    done
     ;;
 _kill)
     # kill-window and kill-session, not the tree's x: in tmux 3.8, x on the
