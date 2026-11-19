@@ -394,14 +394,17 @@ places() {
 # only for windows split into several (a one-pane window is its pane). Each row
 # starts with its tmux id ($ session, @ window, % pane), then the agent's state
 # as an icon (a session or window takes the most urgent under it: ⚠ blocked,
-# ✓ done and not looked at, … working, a dim ✓ done and seen), then
-# session:window.pane, so typing a session or branch name also finds what's
-# under it. Window rows show their active pane: the role, the agent and its
+# ✓ done and not looked at, … working, a dim ✓ done and seen). A session row
+# is its name in bold and a rule; windows and panes hang under it as a tree
+# (├─ └─). Window rows show their active pane: the role, the agent's
 # state (or the program), and Claude's conversation title (or the directory).
+# Each window and pane row ends with session:window[.pane] dimmed, so typing a
+# session name also finds what's under it (fzf can't search hidden fields).
 pick_rows() {
-    tmux list-panes -a -F "#{session_id}$tab#{session_name}$tab#{session_windows}$tab#{window_id}$tab#{window_index}$tab#{window_name}$tab#{window_panes}$tab#{?#{==:#{@role},orchestrator},◆ orchestrator,#{?#{@task},task,}}$tab#{pane_id}$tab#{pane_index}$tab#{pane_active}$tab#{?#{@agent},#{@agent} #{?#{@agent_state},#{@agent_state},idle},#{pane_current_command}}$tab$title$tab#{b:pane_current_path}$tab#{@agent_state}$tab#{@agent_seen}" |
+    tmux list-panes -a -F "#{session_id}$tab#{session_name}$tab#{session_windows}$tab#{window_id}$tab#{window_index}$tab#{p24:#{=24:window_name}}$tab#{window_panes}$tab#{p16:#{?#{==:#{@role},orchestrator},◆ orchestrator,#{?#{@task},task,}}}$tab#{pane_id}$tab#{pane_index}$tab#{pane_active}$tab#{p8:#{=8:#{?#{@agent},#{?#{@agent_state},#{@agent_state},idle},#{pane_current_command}}}}$tab$title$tab#{b:pane_current_path}$tab#{@agent_state}$tab#{@agent_seen}" |
         awk -F'\t' '
         function rank(st, seen) { return st == "blocked" ? 4 : st == "done" && seen == "" ? 3 : st == "working" ? 2 : st == "done" ? 1 : 0 }
+        function rule(k,  t) { t = ""; while (k-- > 0) t = t "─"; return t }
         function icon(r) { return r == 4 ? "\033[31m⚠\033[0m" : r == 3 ? "\033[32m✓\033[0m" : r == 2 ? "\033[33m…\033[0m" : r == 1 ? "\033[2m✓\033[0m" : " " }
         # Rows wait for their window, and windows for their session, to learn
         # the most urgent state; \001 marks where its icon goes.
@@ -421,12 +424,19 @@ pick_rows() {
         {
             r = rank($15, $16)
             sub(/^[^[:alnum:]]+ /, "", $13)
-            info = sprintf("%-15s %s", $12, ($13 != "" ? $13 : $14))
-            if ($1 != s) { flushs(); s = $1; shead = sprintf("%s\t\001 %s · %d window%s", $1, $2, $3, ($3 == 1 ? "" : "s")) }
-            if ($4 != w) { flushw(); w = $4; head = sprintf("%s\t\001   %-16s %-24.24s %-14s", $4, $2 ":" $5, $6, $8) }
+            info = sprintf("%s %s", $12, ($13 != "" ? $13 : $14))
+            if ($1 != s) {
+                flushs(); s = $1; nw = 0
+                shead = sprintf("%s\t\001 \033[1m%s\033[0m \033[2m%s %d window%s\033[0m", $1, $2, rule(40 - length($2)), $3, ($3 == 1 ? "" : "s"))
+            }
+            if ($4 != w) {
+                flushw(); w = $4; np = 0; lastw = (++nw == $3)
+                head = sprintf("%s\t\001 %s %-3s %s %s ", $4, (lastw ? "└─" : "├─"), $5, $6, $8)
+            }
             if (r > wr) wr = r
-            if ($11 == 1) row = head " " info
-            if ($7 > 1) panes[++n] = sprintf("%s\t%s     ↳ %-14s %s", $9, icon(r), $2 ":" $5 "." $10, info)
+            tag = sprintf("  \033[2m%s:%s\033[0m", $2, $5)
+            if ($11 == 1) row = head " " info tag
+            if ($7 > 1) panes[++n] = sprintf("%s\t%s %s%s %-43s %s  \033[2m%s:%s.%s\033[0m", $9, icon(r), (lastw ? "   " : "│  "), (++np == $7 ? "└─" : "├─"), "." $10, info, $2, $5, $10)
         }
         END { flushs() }'
 }
@@ -632,7 +642,7 @@ _preview)
         capture "$2"
         exit 0
     fi
-    mapfile -t panes < <(tmux list-panes -t "$2" -F "#{pane_id}$tab#{session_name}:#{window_index}.#{pane_index}$tab#{?#{@agent},#{@agent} #{?#{@agent_state},#{@agent_state},idle},#{pane_current_command}}$tab#{b:pane_current_path}$tab#{pane_active}")
+    mapfile -t panes < <(tmux list-panes -t "$2" -F "#{pane_id}$tab#{session_name}:#{window_index}.#{pane_index}$tab#{?#{@agent},#{?#{@agent_state},#{@agent_state},idle},#{pane_current_command}}$tab#{b:pane_current_path}$tab#{pane_active}")
     rows=${FZF_PREVIEW_LINES:-40} cols=${FZF_PREVIEW_COLUMNS:-80}
     each=$(( rows / ${#panes[@]} - 1 ))
     (( each < 1 )) && each=1
