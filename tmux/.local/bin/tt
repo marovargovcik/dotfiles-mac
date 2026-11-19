@@ -62,6 +62,10 @@ fields() { tr '\t' '\037'; }
 # every pane with the host name, which says nothing.
 title='#{?#{==:#{pane_title},#{host}},,#{pane_title}}'
 
+# Every fzf list here reads top-down from the prompt, like the tree; options
+# already in FZF_DEFAULT_OPTS come later and win.
+export FZF_DEFAULT_OPTS="--layout=reverse ${FZF_DEFAULT_OPTS:-}"
+
 die() { echo "tt: $*" >&2; exit 1; }
 
 # ── tmux backend ────────────────────────────────────────────────────────────
