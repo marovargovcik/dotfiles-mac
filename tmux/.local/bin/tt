@@ -368,23 +368,43 @@ places() {
 
 # pick's rows, like the tree: a session, then each window, then each pane, but
 # only for windows split into several (a one-pane window is its pane). Each row
-# starts with its tmux id ($ session, @ window, % pane), then session:window.pane,
-# so typing a session or branch name also finds what's under it. Window rows
-# show their active pane: the role, the agent and its state (or the program),
-# and Claude's conversation title (or the directory).
+# starts with its tmux id ($ session, @ window, % pane), then the agent's state
+# as an icon (a session or window takes the most urgent under it: ⚠ blocked,
+# ✓ done and not looked at, … working, a dim ✓ done and seen), then
+# session:window.pane, so typing a session or branch name also finds what's
+# under it. Window rows show their active pane: the role, the agent and its
+# state (or the program), and Claude's conversation title (or the directory).
 pick_rows() {
-    tmux list-panes -a -F "#{session_id}$tab#{session_name}$tab#{session_windows}$tab#{window_id}$tab#{window_index}$tab#{window_name}$tab#{window_panes}$tab#{?#{==:#{@role},orchestrator},◆ orchestrator,#{?#{@task},task,}}$tab#{pane_id}$tab#{pane_index}$tab#{pane_active}$tab#{?#{@agent},#{@agent} #{?#{@agent_state},#{@agent_state},idle},#{pane_current_command}}$tab$title$tab#{b:pane_current_path}" |
+    tmux list-panes -a -F "#{session_id}$tab#{session_name}$tab#{session_windows}$tab#{window_id}$tab#{window_index}$tab#{window_name}$tab#{window_panes}$tab#{?#{==:#{@role},orchestrator},◆ orchestrator,#{?#{@task},task,}}$tab#{pane_id}$tab#{pane_index}$tab#{pane_active}$tab#{?#{@agent},#{@agent} #{?#{@agent_state},#{@agent_state},idle},#{pane_current_command}}$tab$title$tab#{b:pane_current_path}$tab#{@agent_state}$tab#{@agent_seen}" |
         awk -F'\t' '
-        function flush(i) { if (w != "") { print row; for (i = 1; i <= n; i++) print panes[i] } w = ""; n = 0 }
+        function rank(st, seen) { return st == "blocked" ? 4 : st == "done" && seen == "" ? 3 : st == "working" ? 2 : st == "done" ? 1 : 0 }
+        function icon(r) { return r == 4 ? "\033[31m⚠\033[0m" : r == 3 ? "\033[32m✓\033[0m" : r == 2 ? "\033[33m…\033[0m" : r == 1 ? "\033[2m✓\033[0m" : " " }
+        # Rows wait for their window, and windows for their session, to learn
+        # the most urgent state; \001 marks where its icon goes.
+        function flushw(i) {
+            if (w == "") return
+            sub(/\001/, icon(wr), row); body = body row "\n"
+            for (i = 1; i <= n; i++) body = body panes[i] "\n"
+            if (wr > sr) sr = wr
+            w = ""; n = 0; wr = 0
+        }
+        function flushs() {
+            flushw()
+            if (s == "") return
+            sub(/\001/, icon(sr), shead); printf "%s\n%s", shead, body
+            body = ""; sr = 0
+        }
         {
+            r = rank($15, $16)
             sub(/^[^[:alnum:]]+ /, "", $13)
             info = sprintf("%-15s %s", $12, ($13 != "" ? $13 : $14))
-            if ($1 != s) { flush(); s = $1; printf "%s\t%s · %d window%s\n", $1, $2, $3, ($3 == 1 ? "" : "s") }
-            if ($4 != w) { flush(); w = $4; head = sprintf("%s\t  %-16s %-24.24s %-14s", $4, $2 ":" $5, $6, $8) }
+            if ($1 != s) { flushs(); s = $1; shead = sprintf("%s\t\001 %s · %d window%s", $1, $2, $3, ($3 == 1 ? "" : "s")) }
+            if ($4 != w) { flushw(); w = $4; head = sprintf("%s\t\001   %-16s %-24.24s %-14s", $4, $2 ":" $5, $6, $8) }
+            if (r > wr) wr = r
             if ($11 == 1) row = head " " info
-            if ($7 > 1) panes[++n] = sprintf("%s\t    ↳ %-14s %s", $9, $2 ":" $5 "." $10, info)
+            if ($7 > 1) panes[++n] = sprintf("%s\t%s     ↳ %-14s %s", $9, icon(r), $2 ":" $5 "." $10, info)
         }
-        END { flush() }'
+        END { flushs() }'
 }
 
 # Panes with an agent state, most urgent first: blocked, then done and not
@@ -577,7 +597,7 @@ read)
 pick)
     self=$(printf %q "$0")
     keys='enter: go  ctrl-x: kill this row  ctrl-s: kill its session'
-    target=$(pick_rows | fzf --no-sort --with-nth=2.. --delimiter='\t' --header="$keys" \
+    target=$(pick_rows | fzf --ansi --no-sort --with-nth=2.. --delimiter='\t' --header="$keys" \
         --bind="ctrl-x:execute($self _kill row {1})+reload($self _pick-rows)" \
         --bind="ctrl-s:execute($self _kill session {1})+reload($self _pick-rows)" \
         --preview="$self _preview {1}" --preview-window=right,50%,follow | cut -f1) || exit 0
