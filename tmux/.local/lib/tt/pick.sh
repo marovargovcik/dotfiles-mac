@@ -44,19 +44,30 @@ notify() {
 }
 
 # pick: goes to the row picked: enter goes there, ctrl-o opens the pull request of the row's branch, ctrl-x kills that
-# row, ctrl-s the row's whole session, ctrl-/ hides or shows the preview. The preview sits below, so the list has the
-# popup's whole width.
+# row, ctrl-s the row's whole session, ctrl-/ hides or shows the preview. The preview takes the width the rows leave
+# beside them, or sits below when that's under 60 columns, so the list never gets cut short.
 pick() {
-    local self target keys='enter: go  ctrl-o: open PR  ctrl-x: kill this row  ctrl-s: kill its session  ctrl-/: preview'
+    local self target rows list layout keys='enter: go  ctrl-o: open PR  ctrl-x: kill this row  ctrl-s: kill its session  ctrl-/: preview'
     self=$(printf %q "$0")
     live pick
-    target=$(pick_rows | fzf "${live_opts[@]}" --ansi --no-sort --with-nth=2.. --delimiter='\t' --header="$keys" \
+    rows=$(pick_rows)
+    list=$(($(cut -f2- <<<"$rows" | sed 's/\x1b\[[0-9;]*m//g' | widest) + 4))
+    layout="right,$(($(tput cols) - list)),follow,<$((list + 60))(down,50%,follow)"
+    target=$(fzf "${live_opts[@]}" --ansi --no-sort --with-nth=2.. --delimiter='\t' --header="$keys" \
         --bind="ctrl-x:execute($self _kill row {1})+reload($self _pick-rows)" \
         --bind="ctrl-s:execute($self _kill session {1})+reload($self _pick-rows)" \
         --bind="ctrl-o:execute-silent($self _pr {1})" \
         --bind=ctrl-/:toggle-preview \
-        --preview="$self _preview {1}" --preview-window=down,50%,follow | cut -f1) || exit 0
+        --preview="$self _preview {1}" --preview-window="$layout" <<<"$rows" | cut -f1) || exit 0
     mux_focus "$target"
+}
+
+# widest: the length of stdin's longest line, in characters: BSD wc -L and awk count bytes, and the tree's ├─ are
+# three each.
+widest() {
+    local line max=0
+    while IFS= read -r line; do ((${#line} > max)) && max=${#line}; done
+    echo "$max"
 }
 
 # capture <pane>: the pane as it looks now, without the blank lines below the last output, so following the end shows

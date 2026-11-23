@@ -82,3 +82,8 @@ $(tag keep:0 window_id)|  └─ 0 bash       bash     home  keep:0"
     assert_success
     eventually grep -qF "display-message tt: no pull request for task" "$tmp/tmux.log"
 }
+
+@test "widest counts characters, not bytes" {
+    source "$BATS_TEST_DIRNAME/../.local/lib/tt/pick.sh"
+    assert_equal "$(printf 'ab\n├─ cdé\n' | widest)" 6
+}
