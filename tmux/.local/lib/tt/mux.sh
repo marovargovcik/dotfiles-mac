@@ -111,9 +111,8 @@ mux_first_prompt() {
     return 1
 }
 
-# mux_handoff <pane> <prompt>: gives a just-started claude its first prompt by pasting it in, in the background:
-# Claude Code names a conversation (and so #{pane_title}) only from a prompt typed in, not one on its command line.
-# The prompt stays in a file, tagged on the pane, until claude takes it.
+# mux_handoff <pane> <prompt>: pastes a just-started claude's first prompt in, in the background, as Claude Code names a
+# conversation only from a typed prompt. The prompt stays in a file, tagged on the pane, until claude takes it.
 mux_handoff() {
     local file
     file=$(mktemp "${TMPDIR:-/tmp}/tt-handoff.XXXXXX")

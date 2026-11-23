@@ -67,9 +67,8 @@ stub_claude() {
 exec "'"$tmp"'/libexec/claude"'
 }
 
-# stub_composer <screen>: a claude whose input box shows the screen, waits for a bracketed paste and a separate
-# Enter, then records what's submitted in $tmp/claude.input; its arguments go to $tmp/claude.args. It runs on a copy of
-# bash named claude, as named_cat does for cat.
+# stub_composer <screen>: a claude (a copy of bash, as named_cat) showing the screen; records its arguments in
+# $tmp/claude.args, and a bracketed paste submitted with a separate Enter in $tmp/claude.input.
 stub_composer() {
     mkdir -p "$tmp/libexec"
     cp "$(command -v bash)" "$tmp/libexec/claude"
