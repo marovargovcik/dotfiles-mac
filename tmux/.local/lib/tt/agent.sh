@@ -1,10 +1,10 @@
 # shellcheck shell=bash
-# The agent: the command that starts Claude Code, its conversations, and its process.
+# The agent, Claude Code or Codex: the command that starts it, its conversations, and its process.
 
 # shellcheck source=common.sh
 source "${BASH_SOURCE[0]%/*}/common.sh"
 
-# prompt_arg <prompt>: claude's prompt argument, read from a file so the typed line stays short: until a fresh pane's
+# prompt_arg <prompt>: the agent's prompt argument, read from a file so the typed line stays short: until a fresh pane's
 # shell shows its prompt, the tty refuses a long typed line (over 1024 bytes on macOS, 4096 on Linux).
 prompt_arg() {
     [ -n "$1" ] || return 0
@@ -15,23 +15,50 @@ prompt_arg() {
     printf ' "$(cat %q && rm %q)"' "$f" "$f"
 }
 
+# provider: the agent new panes start, claude or codex.
+provider() { cat "$provider_file" 2>/dev/null || echo claude; }
+
+# set_provider <claude|codex>: makes it the agent new panes start.
+set_provider() {
+    mkdir -p "${provider_file%/*}"
+    echo "$1" >"$provider_file"
+}
+
+# claude_dir <dir>: where Claude Code keeps the conversations started in a directory.
+claude_dir() { echo "$HOME/.claude/projects/${1//[^A-Za-z0-9]/-}"; }
+
 # session_in <dir>: the newest Claude Code session started in a directory.
 session_in() {
-    local dir=$HOME/.claude/projects/${1//[^A-Za-z0-9]/-} f
+    local f
     # shellcheck disable=SC2012 # session files are named by UUID
-    f=$(ls -t -- "$dir"/*.jsonl 2>/dev/null | head -1) || true
+    f=$(ls -t -- "$(claude_dir "$1")"/*.jsonl 2>/dev/null | head -1) || true
     [ -n "$f" ] && basename "$f" .jsonl || true
 }
 
-# resume_cmd <session> <prompt>: the command that starts claude, resuming the session if there is one.
-resume_cmd() { printf 'claude%s%s' "${1:+ --resume $1}" "$(prompt_arg "$2")"; }
+# Codex's counterpart of Claude Code's auto mode. No sandbox: tt new adds worktrees outside the directory, tt send
+# talks to tmux's socket, git push and gh need the network. What the model asks approval for, a reviewer model
+# decides.
+codex_flags="-s danger-full-access -a on-request -c 'approvals_reviewer=\"auto_review\"'"
 
-# agent_cmd <dir> <resume|new> <prompt>: the command that starts claude in a directory, resuming its newest
-# conversation if asked.
+# resume_cmd <agent> <session> <prompt>: the command that starts the agent, resuming the session if there is one
+# (for codex, --last resumes its newest in the directory).
+resume_cmd() {
+    local agent=$1 session=$2 prompt=$3
+    case $agent in
+    codex) printf 'codex%s %s%s%s' "${session:+ resume}" "$codex_flags" "${session:+ $session}" "$(prompt_arg "$prompt")" ;;
+    *) printf 'claude%s%s' "${session:+ --resume $session}" "$(prompt_arg "$prompt")" ;;
+    esac
+}
+
+# agent_cmd <dir> <resume|new> <prompt>: the command that starts the active provider's agent in a directory,
+# resuming its newest conversation there if asked. Codex finds its own: its history is a database, not files.
 agent_cmd() {
-    local dir=$1 resume=$2 prompt=$3 session=
-    [ "$resume" = resume ] && session=$(session_in "$dir")
-    resume_cmd "$session" "$prompt"
+    local dir=$1 resume=$2 prompt=$3 agent session=
+    agent=$(provider)
+    if [ "$resume" = resume ]; then
+        if [ "$agent" = codex ]; then session=--last; else session=$(session_in "$dir"); fi
+    fi
+    resume_cmd "$agent" "$session" "$prompt"
 }
 
 # agent_proc <agent>: the nearest agent process above this hook: pid, process group, and its terminal's foreground

@@ -35,6 +35,15 @@ teardown() {
     eventually claude_ran "$TT_WORKTREES/app/feat-login" ''
 }
 
+@test "with codex active, the task and a new repo session's orch start codex, orch resuming its newest" {
+    provider codex
+    run "$tt" new -p 'fix the login' feat/login </dev/null
+    assert_success
+    eventually codex_ran "$tmp/app" 'resume --last'
+    eventually codex_ran "$TT_WORKTREES/app/feat-login" 'fix the login'
+    [ ! -e "$tmp/claude.log" ]
+}
+
 @test "a new branch starts from the given base, without tracking it" {
     git commit -q --allow-empty -m second
     git branch base HEAD~1

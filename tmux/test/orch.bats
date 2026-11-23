@@ -25,6 +25,12 @@ task:"
     eventually claude_ran "$tmp/app" ''
 }
 
+@test "with codex active, orch new starts codex fresh" {
+    provider codex
+    "$tt" orch new "$tmp/app" </dev/null
+    eventually codex_ran "$tmp/app" ''
+}
+
 @test "orch goes to the next orchestrator window, wrapping around" {
     "$tt" orch new "$tmp/app" </dev/null
     first=$(tmux list-windows -t app -F '#{window_id}' | sed -n 1p)

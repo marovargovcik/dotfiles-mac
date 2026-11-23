@@ -1,27 +1,32 @@
 #!/usr/bin/env bash
 # tt: tmux tasks. A tmux session per repo, a window per task, each task in its
-# own git worktree with Claude Code running in it.
+# own git worktree with an agent running in it: Claude Code, or Codex.
 #
 #   tt up                              reopens what was open (after a reboot or a killed server): every session's
 #                                      agent windows, each resuming its own conversation; tmux runs it on start
-#   tt proj [dir]                      the repo's session: claude in window "orch" (the main checkout) and in
+#   tt proj [dir]                      the repo's session: the agent in window "orch" (the main checkout) and in
 #                                      a window per worktree; creates what's missing, then switches to it
-#   tt new [-p prompt] [branch] [base] worktree + window for the repo in $PWD, starts claude on prompt
+#   tt new [-p prompt] [branch] [base] worktree + window for the repo in $PWD, starts the agent on prompt
 #   tt archive [window...]             picks tasks with fzf, removes their worktrees (branches stay), logs them;
 #                                      previews the highlighted task's pane
 #   tt archived                        lists archived tasks
 #   tt restore [-p prompt] [key]       the newest archived task whose branch has key (or one picked with fzf):
-#                                      same path, same branch, claude --resume on prompt
+#                                      same path, same branch, the agent resuming on prompt
 #   tt places <ticket|path|repo>       where a request belongs, most specific first: this, task, archived,
 #                                      closed (worktree with no window), session, shell
-#   tt send <pane> <hand-off>          prompts the pane's agent, or starts claude there; refuses a blocked pane
+#   tt send <pane> <hand-off>          prompts the pane's agent, or starts one there; refuses a blocked pane
 #   tt read <pane> [lines]             what the pane shows, plus its scrollback
 #   tt pick                            fuzzy-finds a session, window or pane: enter goes there, ctrl-x kills
 #                                      that row, ctrl-s the row's whole session; previews the row's pane
 #   tt count                           blocked agents and finished ones not looked at yet, as a status-line counter
 #   tt orch [session [window]]         goes to the session's next orchestrator window after window
-#   tt orch new [dir [client]]         another orchestrator window in the repo's main checkout, claude in it
-#   tt state <start|working|done|blocked|clear> [agent]
+#   tt orch new [dir [client]]         another orchestrator window in the repo's main checkout, the agent in it
+#   tt switch [--force] [claude|codex] [pane...]
+#                                      moves the panes, or all agent panes (then new ones start it too), to that
+#                                      agent: it resumes its own conversation there and reads the other's; a working
+#                                      one stays without --force. With no agent: the one new panes start
+#   tt switch --menu <pane> <client>   the same as a tmux menu, for a key binding
+#   tt state <start|working|done|blocked|clear> [claude|codex]
 #                                      agent hook: tags $TMUX_PANE with the agent's state (hook JSON on stdin),
 #                                      and records it in $XDG_RUNTIME_DIR/agents/<pid>, in tmux or not
 #
@@ -32,12 +37,15 @@
 #            PreToolUse on AskUserQuestion, Notification's elicitation_dialog
 #   done     Stop. Not SubagentStop: subagents run inside the session's turn.
 #   clear    SessionEnd
+# Codex's, in ~/.codex/hooks.json, are the same events, all but the blocked ones: PermissionRequest only.
 #
 # Tags, never window names or indexes, say what is what:
 #   session  @kind agent, @repo <main checkout>   the rest of tmux stays plain tmux
 #   window   @role orchestrator                   "orch", in the main checkout; any number of them
 #   window   @task <branch>, @task_path <path>    a task
 #   pane     @agent, @agent_state, @agent_seen, @agent_session   set by the agent's hooks
+#            @agent_session_<agent>, @agent_transcript_<agent>   each agent's own, for tt switch to come back to
+#            @agent_switched                                     when tt switch last moved it
 #
 # The worktree comes back at the same path, so `claude --resume` finds the
 # conversation: Claude Code keys transcripts by directory.
@@ -65,6 +73,8 @@ source "$lib/pick.sh"
 source "$lib/orch.sh"
 # shellcheck source=../lib/tt/state.sh
 source "$lib/state.sh"
+# shellcheck source=../lib/tt/switch.sh
+source "$lib/switch.sh"
 
 # Every fzf list here reads top-down from the prompt, like the tree; options
 # already in FZF_DEFAULT_OPTS come later and win.
@@ -93,9 +103,15 @@ orch)
     esac
     ;;
 count) count ;;
+switch)
+    case ${2:-} in
+    --menu) menu "${3:-}" "${4:-}" ;;
+    *) switch_cmd "${@:2}" ;;
+    esac
+    ;;
 state) state "${2:-}" "${3:-}" ;;
 *)
-    sed -n '5,25s/^# \{0,1\}//p' "$0" >&2
+    sed -n '5,31s/^# \{0,1\}//p' "$0" >&2
     exit 2
     ;;
 esac

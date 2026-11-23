@@ -42,7 +42,7 @@ $(tag keep:0 window_id)|  └─ 0 bash       bash     home  keep:0"
     agent_in "$task" working
     run "$tt" _pick-rows
     assert_line --index 2 --partial $'\033[33m…\033[0m └─ 1'
-    TMUX_PANE=$task "$tt" state "done" <<<"{\"session_id\": \"session-${task#%}\"}"
+    TMUX_PANE=$task "$tt" state "done" <<<"{\"session_id\": \"claude-${task#%}\"}"
     run "$tt" _pick-rows
     assert_line --index 2 --partial $'\033[32m✓\033[0m └─ 1'
     tmux set -p -t "$task" @agent_seen 1

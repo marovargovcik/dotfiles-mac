@@ -29,6 +29,20 @@ teardown() {
     assert_output nux-34-signup
 }
 
+@test "a task archived on codex comes back on codex, resuming its own conversation" {
+    "$tt" new nux-56-codex </dev/null
+    path=$TT_WORKTREES/app/nux-56-codex
+    provider codex
+    agent_in "$(pane_of "$path")"
+    "$tt" switch codex "$(pane_of "$path")" >/dev/null
+    agent_in "$(pane_of "$path")" "" codex
+    sid=$(tag "$(pane_of "$path")" @agent_session_codex)
+    "$tt" archive "$(window_of "$path")" 2>/dev/null
+    run "$tt" restore -p 'carry on' NUX-56 </dev/null
+    assert_success
+    eventually codex_ran "$path" "resume $sid carry on"
+}
+
 @test "a key matches a whole segment of the branch only" {
     run "$tt" restore NUX-1 </dev/null
     assert_failure

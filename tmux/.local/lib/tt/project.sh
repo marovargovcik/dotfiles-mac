@@ -13,7 +13,7 @@ repo_root() {
     echo "${git%/.git}"
 }
 
-# project <root>: the project session of a repo, created with claude in "orch" if missing.
+# project <root>: the project session of a repo, created with the agent in "orch" if missing.
 project() {
     local root=$1 s p
     s=$(mux_project "$root")
@@ -33,13 +33,14 @@ linked_worktrees() {
 # worktree_path <root> <branch>: where a new worktree goes: the branch, slashes and all, as one directory.
 worktree_path() { echo "$worktrees/${1##*/}/${2//\//-}"; }
 
-# open_task <root> <path> <command>: a task window in a repo's session, running the command there; prints the pane.
+# open_task <root> <path> <command>: a task window in a repo's session, running the command there (none: left at
+# the shell's prompt); prints the pane.
 open_task() {
     local root=$1 path=$2 cmd=$3 s branch p
     s=$(project "$root")
     branch=$(git -C "$path" branch --show-current)
     p=$(mux_create_task "$s" "$path" "${branch:-${path##*/}}")
-    mux_run "$p" "$cmd"
+    [ -z "$cmd" ] || mux_run "$p" "$cmd"
     echo "$p"
 }
 
@@ -79,8 +80,8 @@ add_worktree() {
     git -C "$root" worktree add -q --no-track -b "$branch" "$path" "$base"
 }
 
-# new [-p prompt] [branch] [base]: a worktree and window for the repo in $PWD, claude started on the prompt; prints
-# the pane, for whoever handed the task off to follow it with tt read.
+# new [-p prompt] [branch] [base]: a worktree and window for the repo in $PWD, the agent started on the prompt;
+# prints the pane, for whoever handed the task off to follow it with tt read.
 new() {
     local prompt='' opt OPTIND=1 branch base root path pane
     while getopts p: opt; do

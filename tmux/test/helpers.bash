@@ -1,6 +1,6 @@
 # shellcheck shell=bash
-# Shared by tt's tests: a tmux server and home of the test's own, throwaway repos, and stand-ins for claude, gh and
-# fzf on the PATH.
+# Shared by tt's tests: a tmux server and home of the test's own, throwaway repos, and stand-ins for claude, codex,
+# gh and fzf on the PATH.
 
 bats_require_minimum_version 1.5.0
 bats_load_library bats-support
@@ -28,6 +28,7 @@ setup_tt() {
     git config --global init.defaultBranch main
     PATH=$tmp/bin:$PATH
     stub_claude
+    stub_codex
     stub gh 'exit 1'
     stub_fzf
     start_tmux
@@ -58,13 +59,28 @@ named_cat() {
     if command -v codesign >/dev/null; then codesign -f -s - "$tmp/libexec/$1" 2>/dev/null; fi
 }
 
-# stub_claude: a claude that logs its directory and arguments to $tmp/claude.log, then shows what's pasted into it
-# under the name claude, which is what tmux sees the pane run.
+# stub_claude: a claude that logs its directory and arguments (a prompt's lines joined) to $tmp/claude.log, then shows
+# what's pasted into it under the name claude, which is what tmux sees the pane run.
 stub_claude() {
     named_cat claude
     # shellcheck disable=SC2016 # expanded by the stub
-    stub claude 'printf "%s\t%s\n" "$PWD" "$*" >>"'"$tmp"'/claude.log"
+    stub claude 'a="$*"
+printf "%s\t%s\n" "$PWD" "${a//$'"'\\n'"'/ }" >>"'"$tmp"'/claude.log"
 exec "'"$tmp"'/libexec/claude"'
+}
+
+# stub_codex: codex as stub_claude has claude, logging to $tmp/codex.log without the flags every codex gets.
+stub_codex() {
+    named_cat codex
+    # shellcheck disable=SC2016 # expanded by the stub
+    stub codex 'args=()
+while [ $# -gt 0 ]; do
+    case $1 in -s | -a | -c) shift ;; *) args+=("$1") ;; esac
+    shift
+done
+a="${args[*]}"
+printf "%s\t%s\n" "$PWD" "${a//$'"'\\n'"'/ }" >>"'"$tmp"'/codex.log"
+exec "'"$tmp"'/libexec/codex"'
 }
 
 # stub_fzf: an fzf that keeps its input in $tmp/fzf.in and its arguments in $tmp/fzf.args, and picks the lines
@@ -75,6 +91,12 @@ stub_fzf() {
 printf "%s\n" "$@" >"'"$tmp"'/fzf.args"
 [ -n "${FZF_PICK:-}" ] || exit 130
 grep -E -- "$FZF_PICK" "'"$tmp"'/fzf.in"'
+}
+
+# provider <agent>: the agent new panes start, as tt switch sets it.
+provider() {
+    mkdir -p "$XDG_STATE_HOME/tt"
+    echo "$1" >"$XDG_STATE_HOME/tt/provider"
 }
 
 # git_repo <name>: a repo with one commit on main, as the working directory.
@@ -109,6 +131,16 @@ claude_ran() {
     grep -qxF "$1$(printf '\t')$2" "$tmp/claude.log" 2>/dev/null
 }
 
+# codex_ran <dir> <arguments>: whether codex started in the directory with those arguments, past its flags.
+codex_ran() {
+    grep -qxF "$1$(printf '\t')$2" "$tmp/codex.log" 2>/dev/null
+}
+
+# prompted <agent> <dir> <text>: whether the agent started in the directory with the text in its arguments.
+prompted() {
+    grep -F "$2$(printf '\t')" "$tmp/$1.log" 2>/dev/null | grep -qF -- "$3"
+}
+
 # tag <target> <option>: a tmux user option of a session, window or pane.
 tag() { tmux display -p -t "$1" "#{$2}"; }
 
@@ -127,9 +159,15 @@ conversation() {
 # pane_of <task path>: the pane of the task in that worktree.
 pane_of() { tmux display -p -t "$(window_of "$1")" '#{pane_id}'; }
 
-# agent_in <pane> [state]: claude running in the pane, its hooks having told tt the state; start with none.
+# agent_in <pane> [state] [agent]: claude (or the agent) running in the pane, its hooks having told tt the state; start
+# with none. Its session is <agent>-<pane number>, its transcript $tmp/t/<session>.
 agent_in() {
-    eventually runs "$1" claude
-    printf '{"session_id": "session-%s", "source": "startup"}' "${1#%}" | TMUX_PANE=$1 "$tt" state start
-    [ -z "${2:-}" ] || printf '{"session_id": "session-%s"}' "${1#%}" | TMUX_PANE=$1 "$tt" state "$2"
+    local agent=${3:-claude} sid
+    sid=$agent-${1#%}
+    mkdir -p "$tmp/t"
+    touch "$tmp/t/$sid"
+    eventually runs "$1" "$agent"
+    printf '{"session_id": "%s", "transcript_path": "%s", "source": "startup"}' "$sid" "$tmp/t/$sid" |
+        TMUX_PANE=$1 "$tt" state start "$agent"
+    [ -z "${2:-}" ] || printf '{"session_id": "%s"}' "$sid" | TMUX_PANE=$1 "$tt" state "$2" "$agent"
 }

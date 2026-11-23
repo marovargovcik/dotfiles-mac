@@ -45,6 +45,25 @@ teardown() {
     eventually claude_ran "$tmp/app" 'a long hand-off'
 }
 
+@test "with codex active, a shell starts codex" {
+    provider codex
+    shell=$(tmux new-window -d -P -F '#{pane_id}' -t keep: -c "$tmp/app")
+    eventually runs "$shell" bash
+    run "$tt" send "$shell" 'a hand-off'
+    assert_output "$shell: started codex"
+    eventually codex_ran "$tmp/app" 'a hand-off'
+}
+
+@test "a codex pane gets the hand-off pasted and submitted" {
+    tmux send-keys -t "$pane" C-c
+    eventually runs "$pane" bash
+    tmux send-keys -t "$pane" codex Enter
+    agent_in "$pane" "" codex
+    run "$tt" send "$pane" 'look at this'
+    assert_output "$pane: sent"
+    eventually shows "$pane" 'look at this'
+}
+
 @test "a pane running anything else gets nothing" {
     other=$(tmux new-window -d -P -F '#{pane_id}' -t keep: 'sleep 30')
     eventually runs "$other" sleep

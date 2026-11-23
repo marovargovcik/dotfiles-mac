@@ -28,13 +28,13 @@ Not from Homebrew: Alacritty and 1Password (vendor `.dmg`s into `/Applications`)
 
 ```sh
 git clone git@github.com:marovargovcik/dotfiles-mac.git ~/Projects/dotfiles-mac
-mkdir -p ~/.ssh ~/.local/bin ~/.local/lib ~/.config/gh ~/.claude ~/.sbt/1.0 && chmod 700 ~/.ssh
+mkdir -p ~/.ssh ~/.local/bin ~/.local/lib ~/.config/gh ~/.claude ~/.codex ~/.sbt/1.0 && chmod 700 ~/.ssh
 cd ~/Projects/dotfiles-mac && stow */
 ```
 
 **Create those directories first** — stow symlinks any missing directory whole,
 and SSH keys, the `gh` token (`~/.config/gh/hosts.yml`), binaries in
-`~/.local/bin` and `~/.local/lib`, Claude Code's sessions
+`~/.local/bin` and `~/.local/lib`, Claude Code's and Codex's sessions
 and credentials and sbt's caches would then live inside the repo.
 
 `.stowrc` sets the target to `~`: stow's default is the repo's parent
@@ -48,7 +48,8 @@ directory, here `~/Projects`. It is read only when stow runs from the repo.
 | `gh` | `config.yml` only; `hosts.yml` holds the token and stays out |
 | `aerospace` | i3-style tiling; starts `borders` |
 | `claude` | `~/.claude/CLAUDE.md` only, Claude Code's global instructions (tt tasks) |
-| `tmux` | prefix ctrl+space, vi copy mode; no alt bindings, AeroSpace owns alt. prefix+e picks text from the pane (extrakto). `tt`: a session per repo with Claude Code in `orch`, a window per task in its own worktree, archived and restored with it |
+| `codex` | `~/.codex/AGENTS.md`, the same instructions for Codex, and `hooks.json`, tt's agent state |
+| `tmux` | prefix ctrl+space, vi copy mode; no alt bindings, AeroSpace owns alt. prefix+e picks text from the pane (extrakto). `tt`: a session per repo with an agent in `orch`, a window per task in its own worktree, archived and restored with it; prefix+a moves agents between Claude Code and Codex |
 | the rest | app configs; comments in the files say why |
 
 No `~/.zshenv`: nothing needs to run in every zsh, scripts included. PATH is in
@@ -90,6 +91,13 @@ jq 'reduce (["SessionStart", null, "start"], ["UserPromptSubmit", null, "working
     .hooks[$e] = ((.hooks[$e] // []) | map(select(.hooks[0].command | startswith("tt state") | not)))
         + [{hooks: [{type: "command", command: "tt state \($s)", timeout: 5}]} + if $m then {matcher: $m} else {} end])' \
     "$f" > "$f.new" && mv "$f.new" "$f"
+
+# Codex: the first one asks to trust tt's hooks, and each repo (its worktrees
+# follow); trust both.
+codex login
+
+# A repo's CLAUDE.md reaches Codex as AGENTS.md, in the repo:
+ln -s CLAUDE.md AGENTS.md
 
 git lfs install --skip-repo
 gh auth login

@@ -6,6 +6,8 @@ log=${XDG_STATE_HOME:-$HOME/.local/state}/tt/archive.tsv
 trash_root=${XDG_CACHE_HOME:-$HOME/.cache}/tt/trash
 # What tt up reopens: a line per agent pane, rewritten on every agent state change.
 open=${XDG_STATE_HOME:-$HOME/.local/state}/tt/open.tsv
+# The agent new panes start: claude, or what tt switch last set.
+provider_file=${XDG_STATE_HOME:-$HOME/.local/state}/tt/provider
 # Held while tt up runs. A directory: mkdir either makes it or fails, atomically.
 lock=$open.lock
 worktrees=${TT_WORKTREES:-$HOME/.worktrees}
@@ -36,6 +38,9 @@ live='#{==:#{pane_current_command},#{@agent}}'
 live_state="#{?$live,#{@agent_state},}"
 # What a pane does: the agent's state (idle without one yet), or else its program.
 doing="#{?$live,#{?#{@agent_state},#{@agent_state},idle},#{pane_current_command}}"
+
+# is_shell <command>: whether a pane's program is a shell, at whose prompt tt can start an agent.
+is_shell() { case $1 in bash | zsh | fish | sh | dash | ksh) return 0 ;; *) return 1 ;; esac }
 
 # die <message>: prints it after "tt:" and exits.
 die() {
