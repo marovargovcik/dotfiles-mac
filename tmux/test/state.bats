@@ -26,15 +26,6 @@ hook() { TMUX_PANE=$pane "$tt" state "$1" ${3:+"$3"} <<<"$2"; }
     assert_output "task$(printf "\t")s1"
 }
 
-@test "start also keeps the session and transcript as that agent's own" {
-    hook start '{"session_id": "s1", "transcript_path": "/t/s1.jsonl", "source": "startup"}'
-    hook start '{"session_id": "x1", "transcript_path": "/t/x1.jsonl", "source": "clear"}' codex
-    assert_equal "$(tag "$pane" @agent_session_claude) $(tag "$pane" @agent_transcript_claude)" "s1 /t/s1.jsonl"
-    assert_equal "$(tag "$pane" @agent_session_codex) $(tag "$pane" @agent_transcript_codex)" "x1 /t/x1.jsonl"
-    hook clear '{"session_id": "x1"}' codex
-    assert_equal "$(tag "$pane" @agent_session_claude)" s1
-}
-
 @test "a state change tags the pane, not seen while nobody looks at it" {
     hook start '{"session_id": "s1", "source": "startup"}'
     hook working '{"session_id": "s1"}'

@@ -4,22 +4,17 @@
 
 # shellcheck source=project.sh
 source "${BASH_SOURCE[0]%/*}/project.sh"
-# shellcheck source=takeover.sh
-source "${BASH_SOURCE[0]%/*}/takeover.sh"
 
 # log_drop <line>: drops a line from the archive log. Not sed -i: GNU and BSD sed spell it differently.
 log_drop() { sed "$1d" "$log" >"$log.tmp" && mv "$log.tmp" "$log"; }
 
-# log_task <repo> <branch> <path> <label> <conversations>: appends an archived task to the log: date, repo, branch,
-# path, conversation, label, then the rest of the pane's conversations ($convs). With no agent on record, the
-# conversation is the newest Claude Code one in the worktree.
+# log_task <repo> <branch> <path> <label>: appends an archived task to the log: date, repo, branch, path,
+# conversation, label.
 log_task() {
-    local repo=$1 branch=$2 path=$3 label=$4 session=${5%%"$tab"*} rest=${5#*"$tab"}
-    [ -n "${rest//$tab/}" ] || rest=
-    [ -n "$session" ] || session=$(session_in "$path")
+    local repo=$1 branch=$2 path=$3 label=$4
     mkdir -p "${log%/*}"
-    printf '%s\t%s\t%s\t%s\t%s\t%s%s\n' "$(date +%F)" "$repo" "$branch" "$path" "$session" "${label//$tab/ }" \
-        "${rest:+$tab$rest}" >>"$log"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date +%F)" "$repo" "$branch" "$path" "$(session_in "$path")" \
+        "${label//$tab/ }" >>"$log"
 }
 
 # set_aside <window> <path>: moves the worktree's node_modules aside on the same volume and prints where, or nothing
@@ -35,9 +30,8 @@ set_aside() {
 # archive <window> [n/total]: removes a task's worktree (the branch stays), closes its window and logs it for
 # restore. The second argument numbers it in the progress line. A worktree git won't remove comes back as it was.
 archive() {
-    local w=$1 path repo label conv branch trash
+    local w=$1 path repo label branch trash
     IFS=$us read -r path repo label < <(tmux display -p -t "$w" "#{@task_path}$us#{@repo}$us$title")
-    conv=$(tmux display -p -t "$w" "$convs")
     [ -n "$path" ] || {
         echo "tt: $w is not a task window" >&2
         return 1
@@ -48,7 +42,7 @@ archive() {
     }
     branch=$(git -C "$path" branch --show-current)
     label=$(strip_spinner "$label")
-    log_task "$repo" "$branch" "$path" "$label" "$conv"
+    log_task "$repo" "$branch" "$path" "$label"
     trash=$(set_aside "$w" "$path") || trash=
     # The window first, so claude isn't writing in a directory being removed.
     tmux kill-window -t "$w"
@@ -211,10 +205,9 @@ pick_log_line() {
 }
 
 # restore [-p prompt] [key]: the newest archived task whose branch has the key, or one picked: its worktree back at
-# the same path on the same branch, the active provider resuming on the prompt (taking over, when the task was on
-# the other one); prints the pane.
+# the same path on the same branch, claude resuming on the prompt; prints the pane.
 restore() {
-    local prompt='' opt OPTIND=1 n repo branch path session rest pane
+    local prompt='' opt OPTIND=1 n repo branch path session pane
     while getopts p: opt; do
         case $opt in p) prompt=$OPTARG ;; *) exit 2 ;; esac
     done
@@ -226,10 +219,9 @@ restore() {
     else
         n=$(pick_log_line) || exit 0
     fi
-    IFS=$us read -r _ repo branch path session _ rest < <(sed -n "${n}p" "$log" | fields)
+    IFS=$us read -r _ repo branch path session _ < <(sed -n "${n}p" "$log" | fields)
     git -C "$repo" worktree add -q "$path" "$branch"
-    pane=$(open_task "$repo" "$path" '')
-    run_agent "$pane" "$(provider)" "$prompt" '' "$session$us$rest"
+    pane=$(open_task "$repo" "$path" "$(resume_cmd "$session" "$prompt")")
     log_drop "$n"
     mux_focus_new "$pane"
     echo "$pane"

@@ -84,8 +84,6 @@ brew "stylua"
 brew "taplo"
 brew "zizmor"
 # --- not yet installed: the CLI tools and nvim servers the configs above use
-# OpenAI's coding agent; tt switch moves agents to it
-cask "codex"
 # Symlink farm manager (installs these dotfiles)
 brew "stow"
 # Modern ls replacement (ls/ll/la/lt aliases)

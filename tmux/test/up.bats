@@ -27,14 +27,13 @@ restart() {
     : >"$tmp/claude.log"
 }
 
-@test "save records each agent pane: session, kind, repo, role, task, directory, window name, conversations" {
+@test "save records each agent pane: session, kind, repo, role, task, directory, window name, conversation" {
     agent_in "$orch"
     agent_in "$task"
     tmux new-window -d -t keep: -n notes
-    o=claude-${orch#%} t=claude-${task#%}
     run cat "$open"
-    assert_output "$(printf '%s\t' app agent "$tmp/app" orchestrator '' "$tmp/app" orch "$o" claude "$o" '' "$tmp/t/$o" '')
-$(printf '%s\t' app agent "$tmp/app" '' task "$TT_WORKTREES/app/task" task "$t" claude "$t" '' "$tmp/t/$t" '')"
+    assert_output "$(printf '%s\t' app agent "$tmp/app" orchestrator '' "$tmp/app" orch)session-${orch#%}
+$(printf '%s\t' app agent "$tmp/app" '' task "$TT_WORKTREES/app/task" task)session-${task#%}"
 }
 
 @test "up brings back the project session, its orchestrator and its tasks, each resuming its conversation" {
@@ -46,29 +45,9 @@ $(printf '%s\t' app agent "$tmp/app" '' task "$TT_WORKTREES/app/task" task "$t" 
     assert_equal "$(tmux list-windows -t app -F '#{window_name}:#{@role}:#{@task}:#{@task_path}')" "orch:orchestrator::
 task::task:$TT_WORKTREES/app/task"
     assert_equal "$(tag app @repo)" "$tmp/app"
-    eventually claude_ran "$tmp/app" "--resume claude-${orch#%}"
-    eventually claude_ran "$TT_WORKTREES/app/task" "--resume claude-${task#%}"
-    assert_equal "$(tag "$(window_of "$TT_WORKTREES/app/task")" @agent_session)" "claude-${task#%}"
-}
-
-@test "with codex active, a pane that was on claude comes back on codex, taking over from Claude's conversation" {
-    agent_in "$task"
-    provider codex
-    restart
-    "$tt" up </dev/null
-    eventually prompted codex "$TT_WORKTREES/app/task" "moved this pane from Claude Code to you"
-    prompted codex "$TT_WORKTREES/app/task" "$tmp/t/claude-${task#%}"
-    assert [ -n "$(tag "$(window_of "$TT_WORKTREES/app/task")" @agent_switched)" ]
-}
-
-@test "a record from before codex, the session alone, still resumes in claude" {
-    mkdir -p "${open%/*}"
-    printf '%s\t' app agent "$tmp/app" '' task "$TT_WORKTREES/app/task" task >"$open"
-    echo old-session >>"$open"
-    conversation "$TT_WORKTREES/app/task" old-session
-    restart
-    "$tt" up </dev/null
-    eventually claude_ran "$TT_WORKTREES/app/task" "--resume old-session"
+    eventually claude_ran "$tmp/app" "--resume session-${orch#%}"
+    eventually claude_ran "$TT_WORKTREES/app/task" "--resume session-${task#%}"
+    assert_equal "$(tag "$(window_of "$TT_WORKTREES/app/task")" @agent_session)" "session-${task#%}"
 }
 
 @test "with no orchestrator recorded, the new session's orch resumes its newest conversation" {
@@ -77,7 +56,7 @@ task::task:$TT_WORKTREES/app/task"
     restart
     "$tt" up </dev/null
     eventually claude_ran "$tmp/app" "--resume newest"
-    eventually claude_ran "$TT_WORKTREES/app/task" "--resume claude-${task#%}"
+    eventually claude_ran "$TT_WORKTREES/app/task" "--resume session-${task#%}"
 }
 
 @test "an agent outside the project sessions comes back in a session of the same name" {
@@ -86,7 +65,7 @@ task::task:$TT_WORKTREES/app/task"
     restart
     "$tt" up </dev/null
     assert_equal "$(tmux list-windows -t keep -F '#{window_name}' | tail -1)" notes
-    eventually claude_ran "$tmp" "--resume claude-${plain#%}"
+    eventually claude_ran "$tmp" "--resume session-${plain#%}"
 }
 
 @test "what's open already, and a worktree that's gone, stay as they are" {
@@ -115,7 +94,7 @@ task::task:$TT_WORKTREES/app/task"
     mkdir "$open.lock"
     touch -t "$(date -v-3M +%Y%m%d%H%M.%S 2>/dev/null || date -d '3 minutes ago' +%Y%m%d%H%M.%S)" "$open.lock"
     "$tt" up </dev/null
-    eventually claude_ran "$tmp/app" "--resume claude-${orch#%}"
+    eventually claude_ran "$tmp/app" "--resume session-${orch#%}"
     assert [ ! -e "$open.lock" ]
 }
 

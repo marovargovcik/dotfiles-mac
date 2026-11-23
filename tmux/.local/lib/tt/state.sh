@@ -7,15 +7,13 @@ source "${BASH_SOURCE[0]%/*}/up.sh"
 # shellcheck source=pick.sh
 source "${BASH_SOURCE[0]%/*}/pick.sh"
 
-# start_state <agent> <session> <transcript> <source> <pane's session>: a fresh start claims the pane only when no
-# agent holds it, or it holds the terminal itself (tags a killed agent left behind): claude -p run from inside the
-# agent starts a session too. /clear and /resume switch it. The session and transcript are also kept as that agent's,
-# for tt switch to come back to after the other agent had the pane.
+# start_state <agent> <session> <source> <pane's session>: a fresh start claims the pane only when no agent holds
+# it, or it holds the terminal itself (tags a killed agent left behind): claude -p run from inside the agent starts
+# a session too. /clear and /resume switch it.
 start_state() {
-    local agent=$1 sid=$2 transcript=$3 source=$4 cur=$5 p=(-p -t "$TMUX_PANE")
+    local agent=$1 sid=$2 source=$3 cur=$4 p=(-p -t "$TMUX_PANE")
     [ -z "$cur" ] || [ "$source" != startup ] || holds_terminal "$agent" || return 0
     tmux set "${p[@]}" @agent "$agent" \; set "${p[@]}" @agent_session "$sid" \; \
-        set "${p[@]}" "@agent_session_$agent" "$sid" \; set "${p[@]}" "@agent_transcript_$agent" "$transcript" \; \
         set -u "${p[@]}" @agent_state \; set -u "${p[@]}" @agent_seen
     save
     notify
@@ -46,9 +44,8 @@ change_state() {
 # state <start|working|done|blocked|clear> [agent]: records the agent's state from its hook (JSON on stdin), and tags
 # its tmux pane with it.
 state() {
-    local new=${1:-} agent=${2:-claude} sid transcript source cur cur_state visible
-    IFS=$us read -r sid transcript source < <(jq -r \
-        '[.session_id // "", .transcript_path // "", .source // ""] | join("\u001f")' 2>/dev/null) || true
+    local new=${1:-} agent=${2:-claude} sid source cur cur_state visible
+    IFS=$us read -r sid source < <(jq -r '[.session_id // "", .source // ""] | join("\u001f")' 2>/dev/null) || true
     case $new in
     start) record "$agent" idle "$sid" ;;
     working | done | blocked | clear) record "$agent" "$new" "$sid" ;;
@@ -58,7 +55,7 @@ state() {
     IFS=$us read -r cur cur_state visible < <(tmux display -p -t "$TMUX_PANE" \
         "#{@agent_session}$us#{@agent_state}$us#{&&:#{pane_active},#{&&:#{window_active},#{session_attached}}}")
     if [ "$new" = start ]; then
-        start_state "$agent" "$sid" "$transcript" "$source" "$cur"
+        start_state "$agent" "$sid" "$source" "$cur"
     else
         change_state "$agent" "$new" "$sid" "$cur" "$cur_state" "$visible"
     fi

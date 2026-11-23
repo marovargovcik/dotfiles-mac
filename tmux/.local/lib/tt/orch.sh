@@ -4,8 +4,8 @@
 # shellcheck source=project.sh
 source "${BASH_SOURCE[0]%/*}/project.sh"
 
-# new_orch [dir [client]]: another orchestrator window in the repo's main checkout, the agent started fresh; prints
-# its pane. From a key binding (run-shell) there is no tty: the client is named.
+# new_orch [dir [client]]: another orchestrator window in the repo's main checkout, claude started fresh; prints its
+# pane. From a key binding (run-shell) there is no tty: the client is named.
 new_orch() {
     local root s pane
     root=$(repo_root "${1:-.}") || die "not in a git repo"
