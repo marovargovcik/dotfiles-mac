@@ -28,14 +28,14 @@ Not from Homebrew: Alacritty and 1Password (vendor `.dmg`s into `/Applications`)
 
 ```sh
 git clone git@github.com:marovargovcik/dotfiles-mac.git ~/Projects/dotfiles-mac
-mkdir -p ~/.ssh ~/.local/bin ~/.config/gh ~/.claude && chmod 700 ~/.ssh
+mkdir -p ~/.ssh ~/.local/bin ~/.config/gh ~/.claude ~/.sbt/1.0 && chmod 700 ~/.ssh
 cd ~/Projects/dotfiles-mac && stow */
 ```
 
 **Create those directories first** — stow symlinks any missing directory whole,
 and SSH keys, the `gh` token (`~/.config/gh/hosts.yml`), binaries in
-`~/.local/bin`, and Claude Code's sessions
-and credentials would then live inside the repo.
+`~/.local/bin`, Claude Code's sessions
+and credentials and sbt's caches would then live inside the repo.
 
 `.stowrc` sets the target to `~`: stow's default is the repo's parent
 directory, here `~/Projects`. It is read only when stow runs from the repo.
