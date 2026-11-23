@@ -1,0 +1,7 @@
+[default.extend-words]
+# The company, in its dev tooling's paths.
+famly = "famly"
+# tt's awk: flushw/flushs flush a window/session.
+flushs = "flushs"
+# sed's branch command in `N;ba`.
+ba = "ba"

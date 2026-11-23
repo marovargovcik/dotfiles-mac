@@ -101,11 +101,14 @@ ln -s CLAUDE.md AGENTS.md
 
 git lfs install --skip-repo
 gh auth login
+
+# This repo's pre-commit checks (lefthook.yml); the tools are in the Brewfile
+cd ~/Projects/dotfiles-mac && lefthook install && cd
 ```
 
 `PROFILE=/dev/null` (§1) keeps the nvm installer from appending to the shell files,
-which are symlinks into this repo; the lines it needs are already there. Docker Desktop: Settings → Advanced → CLI tools in
-the *System* location (`/usr/local/bin`), for the same reason.
+which are symlinks into this repo; the lines it needs are already there. Docker Desktop:
+Settings → Advanced → CLI tools in the *System* location (`/usr/local/bin`), for the same reason.
 
 Then in nvim: plugins install on first start (`vim.pack`), then `:MetalsInstall`.
 
@@ -127,9 +130,8 @@ Then in nvim: plugins install on first start (`vim.pack`), then `:MetalsInstall`
 brew update && brew upgrade          # zsh plugins included
 brew bundle dump --file=Brewfile --force --no-vscode --no-npm   # after installing something new
 uv tool upgrade --all && npm update -g && cs update
-BATS_LIB_PATH=$HOMEBREW_PREFIX/lib bats */test   # tt's tests
+lefthook run pre-commit --all-files   # every check on every file, tt's tests included
 ```
 
 npm globals belong to one Node version: install a new one with
 `nvm install --lts --reinstall-packages-from=current` to keep them.
-

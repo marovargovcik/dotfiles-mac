@@ -77,6 +77,12 @@ cask "docker-desktop"
 cask "font-hack-nerd-font"
 # Clipboard manager
 cask "maccy"
+# This repo's pre-commit checks (lefthook.yml)
+brew "editorconfig-checker"
+brew "selene"
+brew "stylua"
+brew "taplo"
+brew "zizmor"
 # --- not yet installed: the CLI tools and nvim servers the configs above use
 # OpenAI's coding agent; tt switch moves agents to it
 cask "codex"
