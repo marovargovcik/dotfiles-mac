@@ -72,9 +72,6 @@ cs install sbt scalafix scalafmt
 # Python language server for nvim
 uv tool install basedpyright
 
-# tmux plugins (TPM): clone it, then prefix+I in tmux installs the rest
-git clone https://github.com/tmux-plugins/tpm ~/.local/share/tmux/plugins/tpm
-
 # claude → ~/.local/bin/claude
 curl -fsSL https://claude.ai/install.sh | bash
 
