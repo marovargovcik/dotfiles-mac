@@ -14,14 +14,32 @@ teardown() {
 }
 
 @test "a new branch gets a worktree, a task window in the repo's session and claude on the prompt" {
-    run "$tt" new -p 'fix the login' feat/login </dev/null
+    stub_composer '❯ '
+    local prompt=$'fix the login\nand its tests'
+    run "$tt" new -p "$prompt" feat/login </dev/null
     assert_success
     path=$TT_WORKTREES/app/feat-login
     assert_output "$(tmux display -p -t "$(window_of "$path")" '#{pane_id}')"
     assert_equal "$(git -C "$path" branch --show-current)" feat/login
     assert_equal "$(tag "$(window_of "$path")" @task)" feat/login
     assert_equal "$(tag "$(window_of "$path")" window_name)" feat/login
-    eventually claude_ran "$path" 'fix the login'
+    eventually test -f "$tmp/claude.input"
+    assert_equal "$(cat "$tmp/claude.input")" "$prompt"
+    grep -Fx "$path"$'\t' "$tmp/claude.args"
+    saved=$(tag "$output" @tt_handoff)
+    assert_equal "$(cat "$saved")" "$prompt"
+    agent_in "$output" working
+    eventually test ! -e "$saved"
+}
+
+@test "a trust dialog keeps the hand-off pending" {
+    stub_composer '❯ 1. Yes, I trust this folder'
+    run "$tt" new -p 'fix the login' feat/login </dev/null
+    assert_success
+    eventually shows "$output" 'Yes, I trust this folder'
+    sleep 2
+    assert_equal "$(cat "$(tag "$output" @tt_handoff)")" 'fix the login'
+    [ ! -e "$tmp/claude.input" ]
 }
 
 @test "the repo's session comes first, tagged, with claude resuming in orch" {

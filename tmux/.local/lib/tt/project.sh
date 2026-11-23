@@ -79,7 +79,7 @@ add_worktree() {
     git -C "$root" worktree add -q --no-track -b "$branch" "$path" "$base"
 }
 
-# new [-p prompt] [branch] [base]: a worktree and window for the repo in $PWD, claude started on the prompt; prints
+# new [-p prompt] [branch] [base]: a worktree and window for the repo in $PWD, claude given the prompt; prints
 # the pane, for whoever handed the task off to follow it with tt read.
 new() {
     local prompt='' opt OPTIND=1 branch base root path pane
@@ -94,7 +94,8 @@ new() {
     path=$(worktree_path "$root" "$branch")
     [ -e "$path" ] && die "$path already exists"
     add_worktree "$root" "$path" "$branch" "$base"
-    pane=$(open_task "$root" "$path" "$(agent_cmd "$path" new "$prompt")")
+    pane=$(open_task "$root" "$path" "$(agent_cmd "$path" new '')")
+    [ -z "$prompt" ] || mux_handoff "$pane" "$prompt"
     mux_focus_new "$pane"
     echo "$pane"
 }

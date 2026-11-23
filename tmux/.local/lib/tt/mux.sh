@@ -68,6 +68,67 @@ mux_send() {
     tmux send-keys -t "$1" Enter
 }
 
+# mux_input_row <pane>: the row with the cursor in claude's input box, once claude runs there and takes bracketed
+# paste.
+mux_input_row() {
+    local cmd paste row
+    read -r cmd paste row < <(tmux display -p -t "$1" '#{pane_current_command} #{bracket_paste_flag} #{cursor_y}') &&
+        [ "$cmd" = claude ] && [ "$paste" = 1 ] && tmux capture-pane -p -t "$1" -S "$row" -E "$row"
+}
+
+# mux_first_prompt <pane> <file>: waits for claude's empty input box (a trust dialog first keeps it waiting), pastes
+# the file once, checks the input box took it, submits once, and waits for claude's hook to confirm.
+mux_first_prompt() {
+    local pane=$1 file=$2 row i screen draft first buffer=${2##*/}
+    local ready='^❯[[:space:] ]*(Try ".*")?[[:space:] ]*$'
+    local live_input="#{&&:#{==:#{pane_current_command},claude},#{bracket_paste_flag}}"
+    first=$(head -c 64 "$file")
+    first=${first%%$'\n'*}
+    for ((i = 0; i < 120; i++)); do
+        row=$(mux_input_row "$pane") && [[ $row =~ $ready ]] && break
+        tmux has-session -t "$pane" || return 1
+        sleep 0.5
+    done
+    ((i < 120)) || return 1
+
+    tmux load-buffer -b "$buffer" "$file" || return 1
+    tmux if-shell -F -t "$pane" "$live_input" \
+        "paste-buffer -r -p -d -b $buffer -t $pane" "delete-buffer -b $buffer" || return 1
+    sleep 1
+    row=$(mux_input_row "$pane") && [[ ! $row =~ $ready ]] || return 1
+    screen=$(tmux capture-pane -J -p -t "$pane") || return 1
+    draft=$'\n'$screen
+    [[ $draft == *$'\n'❯* ]] || return 1
+    draft=${draft##*$'\n'❯}
+    draft=${draft#?} # The nonbreaking space after ❯.
+    [[ $draft == '[Pasted'* || $draft == "$first"* ]] || return 1
+    tmux if-shell -F -t "$pane" "$live_input" "send-keys -t $pane Enter" || return 1
+
+    for ((i = 0; i < 30; i++)); do
+        case $(tmux display -p -t "$pane" '#{@agent_state}') in working | done | blocked) return 0 ;; esac
+        sleep 1
+    done
+    return 1
+}
+
+# mux_handoff <pane> <prompt>: gives a just-started claude its first prompt by pasting it in, in the background:
+# Claude Code names a conversation (and so #{pane_title}) only from a prompt typed in, not one on its command line.
+# The prompt stays in a file, tagged on the pane, until claude takes it.
+mux_handoff() {
+    local file
+    file=$(mktemp "${TMPDIR:-/tmp}/tt-handoff.XXXXXX")
+    printf %s "$2" >"$file"
+    tmux set -p -t "$1" @tt_handoff "$file"
+    (
+        if mux_first_prompt "$1" "$file"; then
+            rm -f "$file"
+            tmux set -pu -t "$1" @tt_handoff
+        else
+            tmux display-message "tt: delivery to $1 unconfirmed. Hand-off saved in $file"
+        fi
+    ) </dev/null >/dev/null 2>&1 3>&- &
+}
+
 # mux_tasks: every task window: window, path, agent state, repo, conversation title.
 mux_tasks() {
     tmux list-windows -a -F "$(formats '#{window_id}' '#{@task_path}' "$live_state" '#{@repo}' "$title")" 2>/dev/null |

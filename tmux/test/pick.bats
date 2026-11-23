@@ -38,6 +38,13 @@ $(tag keep session_id)|  keep $(rule 36) 1 window
 $(tag keep:0 window_id)|  └─ 0 bash       bash     home  keep:0"
 }
 
+@test "a window's name is shown whole, however long" {
+    tmux rename-window -t app:1 admin/ove-171-ban-the-syntactic-scala-style-rules-with
+    run "$tt" _pick-rows
+    assert_success
+    plain <<<"$output" | grep -q '└─ 1 admin/ove-171-ban-the-syntactic-scala-style-rules-with task '
+}
+
 @test "the icons: red blocked, green done and not looked at, yellow working, dim done and seen" {
     agent_in "$task" working
     run "$tt" _pick-rows

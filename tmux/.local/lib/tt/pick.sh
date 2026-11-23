@@ -15,7 +15,7 @@ source "${BASH_SOURCE[0]%/*}/mux.sh"
 pick_rows() {
     local role='#{?#{==:#{@role},orchestrator},◆,#{?#{@task},task,}}' format
     format=$(formats '#{session_id}' '#{session_name}' '#{session_windows}' \
-        '#{window_id}' '#{window_index}' '#{=24:window_name}' '#{window_panes}' "$role" \
+        '#{window_id}' '#{window_index}' '#{window_name}' '#{window_panes}' "$role" \
         '#{pane_id}' '#{pane_index}' '#{pane_active}' "#{=8:$doing}" "$title" '#{b:pane_current_path}' \
         "$live_state" '#{@agent_seen}')
     tmux list-panes -a -F "$format" | LC_ALL=C awk -F'\t' -f "${BASH_SOURCE[0]%/*}/pick-rows.awk"

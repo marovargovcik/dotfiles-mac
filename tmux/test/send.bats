@@ -40,9 +40,11 @@ teardown() {
 @test "a shell starts claude on the hand-off, in its directory" {
     shell=$(tmux new-window -d -P -F '#{pane_id}' -t keep: -c "$tmp/app")
     eventually runs "$shell" bash
+    stub_composer '❯ '
     run "$tt" send "$shell" 'a long hand-off'
     assert_output "$shell: started claude"
-    eventually claude_ran "$tmp/app" 'a long hand-off'
+    eventually test -f "$tmp/claude.input"
+    assert_equal "$(cat "$tmp/claude.input")" 'a long hand-off'
 }
 
 @test "a pane running anything else gets nothing" {

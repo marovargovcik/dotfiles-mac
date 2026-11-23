@@ -67,6 +67,34 @@ stub_claude() {
 exec "'"$tmp"'/libexec/claude"'
 }
 
+# stub_composer <screen>: a claude whose input box shows the screen, waits for a bracketed paste and a separate
+# Enter, then records what's submitted in $tmp/claude.input; its arguments go to $tmp/claude.args. It runs on a copy of
+# bash named claude, as named_cat does for cat.
+stub_composer() {
+    mkdir -p "$tmp/libexec"
+    cp "$(command -v bash)" "$tmp/libexec/claude"
+    if command -v codesign >/dev/null; then codesign -f -s - "$tmp/libexec/claude" 2>/dev/null; fi
+    stub claude "printf '%s\t%s\n' \"\$PWD\" \"\$*\" >>'$tmp/claude.args'
+exec '$tmp/libexec/claude' '$tmp/composer.bash' '$1' '$tmp/claude.input'"
+    cat >"$tmp/composer.bash" <<'COMPOSER'
+prompt=$1 dest=$2 data= c=
+stty raw -echo
+printf '\e[?2004h%s\r\e[2C' "$prompt"
+while [[ $data != *$'\e[201~' ]]; do
+    IFS= read -r -n1 -d '' c
+    data+=$c
+done
+[[ $data == $'\e[200~'* ]] || exit 1
+body=${data:6:${#data}-12}
+printf '\r\e[K%s %s' "${prompt%% *}" "$body"
+# bash's read turns the Enter's CR into LF.
+IFS= read -r -n1 -d '' c
+[ "$c" = $'\n' ] || exit 1
+printf %s "$body" >"$dest"
+IFS= read -r -n1 -d '' c
+COMPOSER
+}
+
 # stub_fzf: an fzf that keeps its input in $tmp/fzf.in and its arguments in $tmp/fzf.args, and picks the lines
 # matching $FZF_PICK, or none (as esc does).
 stub_fzf() {

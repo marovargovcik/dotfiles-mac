@@ -17,7 +17,8 @@ send() {
     [ "$cmd" = "$agent" ] || agent=
     if [ -z "$agent" ]; then
         case $cmd in bash | zsh | fish | sh | dash | ksh) ;; *) die "$pane is running $cmd, not a shell; nothing sent" ;; esac
-        mux_run "$pane" "$(agent_cmd "$cwd" new "$handoff")"
+        mux_run "$pane" "$(agent_cmd "$cwd" new '')"
+        mux_handoff "$pane" "$handoff"
         echo "$pane: started claude"
         return
     fi
