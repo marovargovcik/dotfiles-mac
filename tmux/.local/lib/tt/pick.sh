@@ -92,9 +92,8 @@ preview() {
     done
 }
 
-# open_pr <target>: the pull request of the branch checked out where the row's pane is, in the browser. Looked up
-# only when asked, and in the background: the picker stays usable while gh asks GitHub, and tmux's status line says
-# so if there is none.
+# open_pr <target>: opens the pull request of the branch in the row's pane, in the background so the picker stays
+# usable; with none, tmux's status line says so.
 open_pr() {
     local dir
     dir=$(tmux display -p -t "$1" '#{pane_current_path}') || return 0
