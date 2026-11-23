@@ -66,3 +66,19 @@ $(tag keep:0 window_id)|  └─ 0 bash       bash     home  keep:0"
     assert_line --index 0 --partial ' app:1.0  claude  task  ◀ ac'
     assert_line --index 5 --partial ' app:1.1  bash  app '
 }
+
+@test "ctrl-o opens the pull request of the branch checked out in the row's pane" {
+    # shellcheck disable=SC2016 # expanded by the stub
+    stub gh 'echo "$PWD $*" >"'"$tmp"'/gh.log"'
+    run "$tt" _pr "$task"
+    assert_success
+    eventually grep -qxF "$TT_WORKTREES/app/task pr view --web" "$tmp/gh.log"
+}
+
+@test "with no pull request, ctrl-o says so instead" {
+    # shellcheck disable=SC2016 # expanded by the stub
+    stub tmux 'echo "$*" >>"'"$tmp"'/tmux.log"; exec '"$(command -v tmux)"' "$@"'
+    run "$tt" _pr "$task"
+    assert_success
+    eventually grep -qF "display-message tt: no pull request for task" "$tmp/tmux.log"
+}

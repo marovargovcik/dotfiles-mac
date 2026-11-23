@@ -43,15 +43,17 @@ notify() {
     done >/dev/null 2>&1 &
 }
 
-# pick: goes to the row picked: enter goes there, ctrl-x kills that row, ctrl-s the row's whole session, ctrl-/ hides
-# or shows the preview. The preview sits below, so the list has the popup's whole width.
+# pick: goes to the row picked: enter goes there, ctrl-o opens the pull request of the row's branch, ctrl-x kills that
+# row, ctrl-s the row's whole session, ctrl-/ hides or shows the preview. The preview sits below, so the list has the
+# popup's whole width.
 pick() {
-    local self target keys='enter: go  ctrl-x: kill this row  ctrl-s: kill its session  ctrl-/: preview'
+    local self target keys='enter: go  ctrl-o: open PR  ctrl-x: kill this row  ctrl-s: kill its session  ctrl-/: preview'
     self=$(printf %q "$0")
     live pick
     target=$(pick_rows | fzf "${live_opts[@]}" --ansi --no-sort --with-nth=2.. --delimiter='\t' --header="$keys" \
         --bind="ctrl-x:execute($self _kill row {1})+reload($self _pick-rows)" \
         --bind="ctrl-s:execute($self _kill session {1})+reload($self _pick-rows)" \
+        --bind="ctrl-o:execute-silent($self _pr {1})" \
         --bind=ctrl-/:toggle-preview \
         --preview="$self _preview {1}" --preview-window=down,50%,follow | cut -f1) || exit 0
     mux_focus "$target"
@@ -88,6 +90,19 @@ preview() {
         ((${#out[@]})) && printf '%s\033[0m\n' "${out[@]}"
         for ((i = ${#out[@]}; i < each; i++)); do echo; done
     done
+}
+
+# open_pr <target>: the pull request of the branch checked out where the row's pane is, in the browser. Looked up
+# only when asked, and in the background: the picker stays usable while gh asks GitHub, and tmux's status line says
+# so if there is none.
+open_pr() {
+    local dir
+    dir=$(tmux display -p -t "$1" '#{pane_current_path}') || return 0
+    {
+        if ! (cd "$dir" && gh pr view --web); then
+            tmux display-message "tt: no pull request for $(git -C "$dir" branch --show-current 2>/dev/null || echo "$dir")"
+        fi
+    } </dev/null >/dev/null 2>&1 &
 }
 
 # kill_target <row|session> <id>: kills the row's session, window or pane (or its whole session) after asking.
