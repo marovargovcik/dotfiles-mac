@@ -28,13 +28,13 @@ Not from Homebrew: Alacritty and 1Password (vendor `.dmg`s into `/Applications`)
 
 ```sh
 git clone git@github.com:marovargovcik/dotfiles-mac.git ~/Projects/dotfiles-mac
-mkdir -p ~/.ssh ~/.local/bin ~/.config/gh ~/.claude ~/.sbt/1.0 && chmod 700 ~/.ssh
+mkdir -p ~/.ssh ~/.local/bin ~/.local/lib ~/.config/gh ~/.claude ~/.sbt/1.0 && chmod 700 ~/.ssh
 cd ~/Projects/dotfiles-mac && stow */
 ```
 
 **Create those directories first** — stow symlinks any missing directory whole,
 and SSH keys, the `gh` token (`~/.config/gh/hosts.yml`), binaries in
-`~/.local/bin`, Claude Code's sessions
+`~/.local/bin` and `~/.local/lib`, Claude Code's sessions
 and credentials and sbt's caches would then live inside the repo.
 
 `.stowrc` sets the target to `~`: stow's default is the repo's parent
@@ -119,6 +119,7 @@ Then in nvim: plugins install on first start (`vim.pack`), then `:MetalsInstall`
 brew update && brew upgrade          # zsh plugins included
 brew bundle dump --file=Brewfile --force --no-vscode --no-npm   # after installing something new
 uv tool upgrade --all && npm update -g && cs update
+BATS_LIB_PATH=$HOMEBREW_PREFIX/lib bats */test   # tt's tests
 ```
 
 npm globals belong to one Node version: install a new one with

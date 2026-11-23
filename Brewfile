@@ -1,5 +1,6 @@
 tap "felixkratz/formulae", "https://github.com/FelixKratz/homebrew-formulae", trusted: true
 tap "nikitabobko/tap", trusted: true
+tap "bats-core/bats-core", trusted: true
 tap "rvben/rumdl", trusted: true
 tap "virtuslab/scala-cli", "https://github.com/Virtuslab/homebrew-scala-cli", trusted: true
 # Static analysis and lint tool, for (ba)sh scripts
@@ -20,6 +21,9 @@ brew "gettext"
 brew "bash"
 # Bash Automated Testing System
 brew "bats-core"
+# tt's tests load these (bats_load_library)
+brew "bats-core/bats-core/bats-assert"
+brew "bats-core/bats-core/bats-support"
 # GNU File, Shell, and Text utilities
 brew "coreutils"
 # GitHub command-line tool
