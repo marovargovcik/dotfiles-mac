@@ -114,18 +114,24 @@ mux_first_prompt() {
 # mux_handoff <pane> <prompt>: pastes a just-started claude's first prompt in, in the background, as Claude Code names a
 # conversation only from a typed prompt. The prompt stays in a file, tagged on the pane, until claude takes it.
 mux_handoff() {
-    local file
+    local file command
     file=$(mktemp "${TMPDIR:-/tmp}/tt-handoff.XXXXXX")
     printf %s "$2" >"$file"
     tmux set -p -t "$1" @tt_handoff "$file"
-    (
-        if mux_first_prompt "$1" "$file"; then
-            rm -f "$file"
-            tmux set -pu -t "$1" @tt_handoff
-        else
-            tmux display-message "tt: delivery to $1 unconfirmed. Hand-off saved in $file"
-        fi
-    ) </dev/null >/dev/null 2>&1 3>&- &
+    # A tool runner can reap the caller's children when tt exits. Let the tmux server own the delivery job.
+    # shellcheck disable=SC2154 # src is the absolute path set by tt.
+    printf -v command 'exec %q _handoff %q %q' "$src" "$1" "$file"
+    tmux run-shell -b -t "$1" "$command"
+}
+
+# mux_deliver_handoff <pane> <file>: the background job started by tmux.
+mux_deliver_handoff() {
+    if mux_first_prompt "$1" "$2"; then
+        rm -f "$2"
+        tmux set -pu -t "$1" @tt_handoff
+    else
+        tmux display-message -t "$1" "tt: delivery to $1 unconfirmed. Hand-off saved in $2"
+    fi
 }
 
 # mux_tasks: every task window: window, path, agent state, repo, conversation title.

@@ -32,6 +32,34 @@ teardown() {
     eventually test ! -e "$saved"
 }
 
+@test "the hand-off still lands when tt's caller reaps its process group on exit" {
+    stub_composer '❯ '
+    mv "$tmp/bin/claude" "$tmp/claude-composer"
+    # shellcheck disable=SC2016 # expanded by the stub
+    stub claude 'while [ ! -f "$TT_WORKTREES/ready" ]; do sleep 0.1; done
+exec "'"$tmp"'/claude-composer" "$@"'
+    run python3 - "$tt" <<'PYTHON'
+import os, signal, subprocess, sys
+
+with subprocess.Popen(
+    [sys.argv[1], "new", "-p", "fix the login", "feat/login"],
+    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, start_new_session=True,
+) as tt:
+    status = tt.wait(timeout=5)
+    # The caller's execution environment reaps its process group on exit.
+    try:
+        os.killpg(tt.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    sys.stdout.buffer.write(tt.stdout.readline())
+    sys.exit(status)
+PYTHON
+    assert_success
+    touch "$TT_WORKTREES/ready"
+    eventually test -f "$tmp/claude.input"
+    assert_equal "$(cat "$tmp/claude.input")" 'fix the login'
+}
+
 @test "a trust dialog keeps the hand-off pending" {
     stub_composer '❯ 1. Yes, I trust this folder'
     run "$tt" new -p 'fix the login' feat/login </dev/null

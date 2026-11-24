@@ -81,6 +81,7 @@ archived) archived ;;
 restore) restore "${@:2}" ;;
 places) places_cmd "${2:-}" ;;
 send) send "${2:-}" "${3:-}" ;;
+_handoff) mux_deliver_handoff "$2" "$3" ;;
 read) read_pane "${2:-}" "${3:-}" ;;
 pick) pick ;;
 _pick-rows) pick_rows ;;
