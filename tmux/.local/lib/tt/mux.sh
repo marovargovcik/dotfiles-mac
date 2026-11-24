@@ -71,9 +71,9 @@ mux_send() {
 # mux_input_row <pane>: the row with the cursor in claude's input box, once claude runs there and takes bracketed
 # paste.
 mux_input_row() {
-    local cmd paste row
-    read -r cmd paste row < <(tmux display -p -t "$1" '#{pane_current_command} #{bracket_paste_flag} #{cursor_y}') &&
-        [ "$cmd" = claude ] && [ "$paste" = 1 ] && tmux capture-pane -p -t "$1" -S "$row" -E "$row"
+    local claude paste row
+    read -r claude paste row < <(tmux display -p -t "$1" "#{?$claude_runs,1,0} #{bracket_paste_flag} #{cursor_y}") &&
+        [ "$claude" = 1 ] && [ "$paste" = 1 ] && tmux capture-pane -p -t "$1" -S "$row" -E "$row"
 }
 
 # mux_first_prompt <pane> <file>: waits for claude's empty input box (a trust dialog first keeps it waiting), pastes
@@ -81,7 +81,7 @@ mux_input_row() {
 mux_first_prompt() {
     local pane=$1 file=$2 row i screen draft first buffer=${2##*/}
     local ready='^❯[[:space:] ]*(Try ".*")?[[:space:] ]*$'
-    local live_input="#{&&:#{==:#{pane_current_command},claude},#{bracket_paste_flag}}"
+    local live_input="#{&&:$claude_runs,#{bracket_paste_flag}}"
     first=$(head -c 64 "$file")
     first=${first%%$'\n'*}
     for ((i = 0; i < 120; i++)); do

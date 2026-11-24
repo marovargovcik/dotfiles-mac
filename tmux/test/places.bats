@@ -47,6 +47,15 @@ closed    nux-12-signup  -  $TT_WORKTREES/app/nux-12-signup"
     assert_output "session  $orch  idle  $tmp/app"
 }
 
+@test "an agent whose binary is named after its version is an agent, not a shell" {
+    claude_exe=2.1.331
+    stub_claude
+    tmux respawn-pane -k -t "$orch" claude
+    agent_in "$orch" working
+    run "$tt" places "$tmp/app"
+    assert_output "session  $orch  working  $tmp/app"
+}
+
 @test "a repo's name: its main checkout" {
     agent_in "$orch" blocked
     run "$tt" places app

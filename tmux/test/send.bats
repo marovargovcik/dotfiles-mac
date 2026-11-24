@@ -23,6 +23,17 @@ teardown() {
     eventually shows "$pane" 'look at this'
 }
 
+@test "an agent whose binary is named after its version gets the hand-off" {
+    claude_exe=2.1.331
+    stub_claude
+    other=$(tmux new-window -d -P -F '#{pane_id}' -t keep: claude)
+    agent_in "$other"
+    run "$tt" send "$other" 'look at this'
+    assert_success
+    assert_output "$other: sent"
+    eventually shows "$other" 'look at this'
+}
+
 @test "a working agent gets it queued" {
     agent_in "$pane" working
     run "$tt" send "$pane" 'and this'

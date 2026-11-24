@@ -7,6 +7,9 @@ bats_load_library bats-support
 bats_load_library bats-assert
 
 tt=$(realpath "$BATS_TEST_DIRNAME/../.local/bin/tt")
+# The executable the claude stubs run, which tmux names the pane after: Claude Code's own installer links claude to
+# a binary named after its version, such as 2.1.331.
+claude_exe=claude
 
 # setup_tt: the test's own home, state, tmux server and stubs. tt runs with no terminal on stdin, as from a hook.
 setup_tt() {
@@ -59,22 +62,22 @@ named_cat() {
 }
 
 # stub_claude: a claude that logs its directory and arguments to $tmp/claude.log, then shows what's pasted into it
-# under the name claude, which is what tmux sees the pane run.
+# under the name $claude_exe, which is what tmux sees the pane run.
 stub_claude() {
-    named_cat claude
+    named_cat "$claude_exe"
     # shellcheck disable=SC2016 # expanded by the stub
     stub claude 'printf "%s\t%s\n" "$PWD" "$*" >>"'"$tmp"'/claude.log"
-exec "'"$tmp"'/libexec/claude"'
+exec "'"$tmp/libexec/$claude_exe"'"'
 }
 
-# stub_composer <screen>: a claude (a copy of bash, as named_cat) showing the screen; records its arguments in
+# stub_composer <screen>: a claude (a copy of bash named $claude_exe, as named_cat) showing the screen; records its arguments in
 # $tmp/claude.args, and a bracketed paste submitted with a separate Enter in $tmp/claude.input.
 stub_composer() {
     mkdir -p "$tmp/libexec"
-    cp "$(command -v bash)" "$tmp/libexec/claude"
-    if command -v codesign >/dev/null; then codesign -f -s - "$tmp/libexec/claude" 2>/dev/null; fi
+    cp "$(command -v bash)" "$tmp/libexec/$claude_exe"
+    if command -v codesign >/dev/null; then codesign -f -s - "$tmp/libexec/$claude_exe" 2>/dev/null; fi
     stub claude "printf '%s\t%s\n' \"\$PWD\" \"\$*\" >>'$tmp/claude.args'
-exec '$tmp/libexec/claude' '$tmp/composer.bash' '$1' '$tmp/claude.input'"
+exec '$tmp/libexec/$claude_exe' '$tmp/composer.bash' '$1' '$tmp/claude.input'"
     cat >"$tmp/composer.bash" <<'COMPOSER'
 prompt=$1 dest=$2 data= c=
 stty raw -echo
@@ -156,7 +159,7 @@ pane_of() { tmux display -p -t "$(window_of "$1")" '#{pane_id}'; }
 
 # agent_in <pane> [state]: claude running in the pane, its hooks having told tt the state; start with none.
 agent_in() {
-    eventually runs "$1" claude
+    eventually runs "$1" "$claude_exe"
     printf '{"session_id": "session-%s", "source": "startup"}' "${1#%}" | TMUX_PANE=$1 "$tt" state start
     [ -z "${2:-}" ] || printf '{"session_id": "session-%s"}' "${1#%}" | TMUX_PANE=$1 "$tt" state "$2"
 }

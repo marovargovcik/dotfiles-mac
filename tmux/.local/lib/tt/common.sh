@@ -30,9 +30,12 @@ formats() {
 # The title the pane's program set (Claude Code: the conversation's); tmux starts
 # every pane with the host name, which says nothing.
 title='#{?#{==:#{pane_title},#{host}},,#{pane_title}}'
+# Whether the pane runs claude: tmux names a program after its binary, and
+# Claude Code's installer links claude to one named after its version (2.1.331).
+claude_runs='#{||:#{==:#{pane_current_command},claude},#{m/r:^[0-9]+([.][0-9]+)+$,#{pane_current_command}}}'
 # An agent's tags hold only while it's still what the pane runs: one that was
 # killed never gets to SessionEnd and leaves them behind.
-live='#{==:#{pane_current_command},#{@agent}}'
+live="#{||:#{==:#{pane_current_command},#{@agent}},#{&&:#{==:#{@agent},claude},$claude_runs}}"
 live_state="#{?$live,#{@agent_state},}"
 # What a pane does: the agent's state (idle without one yet), or else its program.
 doing="#{?$live,#{?#{@agent_state},#{@agent_state},idle},#{pane_current_command}}"

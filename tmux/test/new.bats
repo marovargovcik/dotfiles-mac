@@ -60,6 +60,15 @@ PYTHON
     assert_equal "$(cat "$tmp/claude.input")" 'fix the login'
 }
 
+@test "a claude whose binary is named after its version gets the hand-off" {
+    claude_exe=2.1.331
+    stub_composer '❯ '
+    run "$tt" new -p 'fix the login' feat/login </dev/null
+    assert_success
+    eventually test -f "$tmp/claude.input"
+    assert_equal "$(cat "$tmp/claude.input")" 'fix the login'
+}
+
 @test "a trust dialog keeps the hand-off pending" {
     stub_composer '❯ 1. Yes, I trust this folder'
     run "$tt" new -p 'fix the login' feat/login </dev/null
