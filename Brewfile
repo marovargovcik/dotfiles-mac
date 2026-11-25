@@ -44,6 +44,8 @@ brew "jq"
 brew "lazygit"
 # Fast and powerful Git hooks manager for any type of projects
 brew "lefthook"
+# Polyglot runtime manager (asdf rust clone)
+brew "mise"
 # Open source relational database management system
 brew "mysql-client"
 # Ambitious Vim-fork focused on extensibility and agility
