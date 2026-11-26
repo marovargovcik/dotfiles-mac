@@ -65,6 +65,58 @@ teardown() {
     assert [ ! -s "$XDG_STATE_HOME/tt/archive.tsv" ]
 }
 
+@test "what still runs in the worktree is stopped before it goes" {
+    (cd "$path" && {
+        sleep 300 >/dev/null 2>&1 3>&- &
+        echo $! >"$tmp/pid"
+    })
+    run "$tt" archive "$window"
+    assert_success
+    assert [ ! -e "$path" ]
+    run kill -0 "$(cat "$tmp/pid")"
+    assert_failure
+}
+
+@test "empty directories something made after git removed the worktree go too" {
+    real_git=$(command -v git)
+    stub git "\"$real_git\" \"\$@\" || exit
+[ \"\$3 \$4\" != 'worktree remove' ] || mkdir -p \"\$5/target/global-logging\""
+    run "$tt" archive "$window"
+    assert_success
+    assert [ ! -e "$path" ]
+}
+
+@test "a worktree git unregistered but couldn't delete stays archived, and what's left is reported" {
+    echo target >"$path/.gitignore"
+    git -C "$path" add .gitignore && git -C "$path" commit -qm ignore
+    mkdir -p "$path/target/stuck"
+    touch "$path/target/stuck/file"
+    chmod a-w "$path/target/stuck"
+    run "$tt" archive "$window"
+    chmod u+w "$path/target/stuck"
+    assert_failure
+    assert_line --regexp "^tt: nux-12-login is archived, but $path still holds [1-9][0-9]* file\\(s\\)$"
+    assert_equal "$(window_of "$path")" ""
+    assert_equal "$(wc -l <"$XDG_STATE_HOME/tt/archive.tsv" | tr -d ' ')" 1
+    assert [ -e "$path/target/stuck/file" ]
+}
+
+@test "on a detached HEAD, the log keeps the commit" {
+    git -C "$path" checkout -q --detach
+    run "$tt" archive "$window"
+    assert_success
+    assert_equal "$(cut -f3 "$XDG_STATE_HOME/tt/archive.tsv")" "$(git rev-parse main)"
+}
+
+@test "on a detached HEAD no branch has, the worktree is kept" {
+    git -C "$path" checkout -q --detach
+    git -C "$path" commit -q --allow-empty -m lost
+    run "$tt" archive "$window"
+    assert_failure
+    assert_output "tt: nux-12-login is on a commit no branch has; kept"
+    assert [ -e "$path" ]
+}
+
 @test "with no window given, the tasks picked with fzf go" {
     "$tt" new other </dev/null
     FZF_PICK=nux-12 run "$tt" archive

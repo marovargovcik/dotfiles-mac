@@ -28,7 +28,7 @@ set_aside() {
 }
 
 # archive <window> [n/total]: removes a task's worktree (the branch stays), closes its window and logs it for
-# restore. The second argument numbers it in the progress line. A worktree git won't remove comes back as it was.
+# restore; n/total numbers the progress line. A worktree git won't remove comes back; one half-deleted is reported.
 archive() {
     local w=$1 path repo label branch trash
     IFS=$us read -r path repo label < <(tmux display -p -t "$w" "#{@task_path}$us#{@repo}$us$title")
@@ -40,19 +40,65 @@ archive() {
         echo "tt: ${path##*/} has uncommitted changes; kept" >&2
         return 1
     }
+    # On a detached HEAD, the commit, which restore checks out the same way.
     branch=$(git -C "$path" branch --show-current)
+    if [ -z "$branch" ]; then
+        branch=$(git -C "$path" rev-parse HEAD)
+        [ -n "$(git -C "$path" for-each-ref --contains HEAD refs/heads refs/remotes)" ] || {
+            echo "tt: ${path##*/} is on a commit no branch has; kept" >&2
+            return 1
+        }
+    fi
     label=$(strip_spinner "$label")
     log_task "$repo" "$branch" "$path" "$label"
     trash=$(set_aside "$w" "$path") || trash=
     # The window first, so claude isn't writing in a directory being removed.
     tmux kill-window -t "$w"
-    if ! remove_worktree "$repo" "$path" "[${2:-1/1}] $label ($branch)"; then
+    stop_procs "$path"
+    if ! remove_worktree "$repo" "$path" "[${2:-1/1}] $label ($branch)" && registered "$repo" "$path"; then
         log_drop '$'
         [ -z "$trash" ] || { mv "$trash/node_modules" "$path/" && rmdir "$trash"; }
         open_task "$repo" "$path" "$(agent_cmd "$path" resume '')" >/dev/null
         return 1
     fi
     [ -z "$trash" ] || empty_trash "$trash"
+    [ -e "$path" ] || return 0
+    find "$path" -depth -type d -empty -delete 2>/dev/null || true
+    [ -e "$path" ] || return 0
+    echo "tt: ${path##*/} is archived, but $path still holds $(($(find "$path" ! -type d | wc -l))) file(s)" >&2
+    return 1
+}
+
+# registered <repo> <path>: whether the path is still one of the repo's worktrees. git unregisters a worktree even
+# when it fails to delete it.
+registered() {
+    git -C "$1" worktree list --porcelain | grep -qxF "worktree $2"
+}
+
+# stop_procs <path>: stops what still runs in the worktree, such as a detached build server writing into it while git
+# deletes it: TERM, then KILL after five seconds. Spares tt and its callers.
+stop_procs() {
+    local path=$1 pid spare=" " pids=() alive i
+    pid=$$
+    while [ "${pid:-0}" -gt 1 ]; do
+        spare+="$pid "
+        pid=$(ps -o ppid= -p "$pid" | tr -d ' ') || pid=
+    done
+    # From /, so the subshell itself isn't in the worktree.
+    while read -r pid; do
+        [[ $spare == *" $pid "* ]] || pids+=("$pid")
+    done < <(cd / && lsof -d cwd -Fpn 2>/dev/null | awk -v p="$path" '
+        /^p/ { pid = substr($0, 2) }
+        /^n/ { n = substr($0, 2); if (n == p || index(n, p "/") == 1) print pid }')
+    [ ${#pids[@]} -gt 0 ] || return 0
+    kill "${pids[@]}" 2>/dev/null || true
+    for ((i = 0; i < 50; i++)); do
+        alive=()
+        for pid in "${pids[@]}"; do kill -0 "$pid" 2>/dev/null && alive+=("$pid"); done
+        [ ${#alive[@]} -gt 0 ] || return 0
+        sleep 0.1
+    done
+    kill -9 "${alive[@]}" 2>/dev/null || true
 }
 
 # remove_worktree <repo> <path> <line>: git worktree remove behind a line that counts seconds, so a large worktree
