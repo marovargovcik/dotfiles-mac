@@ -9,17 +9,25 @@ source "${BASH_SOURCE[0]%/*}/mux.sh"
 # several (a one-pane window is its pane). Each row starts with its tmux id ($ session, @ window, % pane), then the
 # window's number (windows count 1 up across sessions, in the list's order; other rows leave it blank), then the agent's
 # state as an icon (a session or window takes the most urgent under it: ⚠ blocked, ✓ done and not looked at, … working,
-# a dim ✓ done and seen). A session row is its name in bold and a rule; windows and panes hang under it as a tree
-# (├─ └─). Window rows show their active pane: the role (◆ orchestrator, or task), the agent's state (or the program),
-# and Claude's conversation title (or the directory). Columns fit their widest value. Each window and pane row ends with
-# session:window[.pane] dimmed, so typing a session name also finds what's under it (fzf can't search hidden fields).
+# a dim ✓ done and seen). Sessions come in tt order's order (order.sh). A session row is its name in bold and a rule;
+# windows and panes hang under it as a tree (├─ └─). Window rows show their active pane: the role (◆ orchestrator, or
+# task), the agent's state (or the program), and Claude's conversation title (or the directory). Columns fit their
+# widest value. Each window and pane row ends with session:window[.pane] dimmed, so typing a session name also finds
+# what's under it (fzf can't search hidden fields).
 pick_rows() {
     local role='#{?#{==:#{@role},orchestrator},◆,#{?#{@task},task,}}' format
     format=$(formats '#{session_id}' '#{session_name}' '#{session_windows}' \
         '#{window_id}' '#{window_index}' '#{window_name}' '#{window_panes}' "$role" \
         '#{pane_id}' '#{pane_index}' '#{pane_active}' "#{=8:$doing}" "$title" '#{b:pane_current_path}' \
         "$live_state" '#{@agent_seen}')
-    tmux list-panes -a -F "$format" | LC_ALL=C awk -F'\t' -f "${BASH_SOURCE[0]%/*}/pick-rows.awk"
+    tmux list-panes -a -F "$format" | in_session_order | LC_ALL=C awk -F'\t' -f "${BASH_SOURCE[0]%/*}/pick-rows.awk"
+}
+
+# in_session_order: list-panes' lines (the session name second), sessions in tt order's order, windows and panes
+# as they were.
+in_session_order() {
+    awk -F'\t' 'NR == FNR { rank[$0] = NR; next } { print rank[$2] "\t" $0 }' <(session_order) - |
+        sort -s -n -t"$tab" -k1,1 | cut -f2-
 }
 
 # live <kind>: fzf options, in live_opts, for a picker that reloads with tt _<kind>-rows when told to (tt _notify);

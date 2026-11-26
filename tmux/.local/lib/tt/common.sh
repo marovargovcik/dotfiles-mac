@@ -4,6 +4,8 @@
 
 log=${XDG_STATE_HOME:-$HOME/.local/state}/tt/archive.tsv
 trash_root=${XDG_CACHE_HOME:-$HOME/.cache}/tt/trash
+# The order tt pick lists sessions in, a name per line (tt order).
+order=${XDG_STATE_HOME:-$HOME/.local/state}/tt/session-order
 # What tt up reopens: a line per agent pane, rewritten on every agent state change.
 open=${XDG_STATE_HOME:-$HOME/.local/state}/tt/open.tsv
 # Held while tt up runs. A directory: mkdir either makes it or fails, atomically.

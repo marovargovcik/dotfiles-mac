@@ -20,6 +20,8 @@
 #                                      the pull request of the row's branch, ctrl-x kills that row, ctrl-s
 #                                      the row's whole session; previews the row's pane; a window's number
 #                                      typed first goes to it
+#   tt order                           the order tt pick lists sessions in: j/k move the cursor, l grabs the
+#                                      session (or lets it go), and j/k then move it; saved as it moves
 #   tt count                           blocked agents and finished ones not looked at yet, as a status-line counter
 #   tt orch [session [window]]         goes to the session's next orchestrator window after window
 #   tt orch new [dir [client]]         another orchestrator window in the repo's main checkout, claude in it
@@ -61,8 +63,8 @@ source "$lib/archive.sh"
 source "$lib/places.sh"
 # shellcheck source=../lib/tt/send.sh
 source "$lib/send.sh"
-# shellcheck source=../lib/tt/pick.sh
-source "$lib/pick.sh"
+# shellcheck source=../lib/tt/order.sh
+source "$lib/order.sh"
 # shellcheck source=../lib/tt/orch.sh
 source "$lib/orch.sh"
 # shellcheck source=../lib/tt/state.sh
@@ -90,6 +92,10 @@ _preview) preview "$2" ;;
 _kill) kill_target "$2" "$3" ;;
 _pr) open_pr "$2" ;;
 _notify) notify ;;
+order) order_cmd ;;
+_order-rows) session_order ;;
+_order-key) order_key "$2" ;;
+_order-grab) order_grab "$2" ;;
 orch)
     case ${2:-} in
     new) new_orch "${3:-}" "${4:-}" ;;
