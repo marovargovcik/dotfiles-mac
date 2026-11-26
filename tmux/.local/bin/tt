@@ -18,7 +18,8 @@
 #   tt read <pane> [lines]             what the pane shows, plus its scrollback
 #   tt pick                            fuzzy-finds a session, window or pane: enter goes there, ctrl-o opens
 #                                      the pull request of the row's branch, ctrl-x kills that row, ctrl-s
-#                                      the row's whole session; previews the row's pane
+#                                      the row's whole session; previews the row's pane; a window's number
+#                                      typed first goes to it
 #   tt count                           blocked agents and finished ones not looked at yet, as a status-line counter
 #   tt orch [session [window]]         goes to the session's next orchestrator window after window
 #   tt orch new [dir [client]]         another orchestrator window in the repo's main checkout, claude in it

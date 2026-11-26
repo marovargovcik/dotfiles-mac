@@ -29,13 +29,20 @@ rule() { printf '─%.0s' $(seq "$1"); }
     shell=$(tmux split-window -d -P -F '#{pane_id}' -t "$task" -c "$tmp/app")
     run "$tt" _pick-rows
     assert_success
-    assert_equal "$(plain <<<"$output" | tr '\t' '|')" "$(tag app session_id)|⚠ app $(rule 37) 2 windows
-$(tag app:0 window_id)|✓ ├─ 0 orch ◆     done     app  app:0
-$(tag app:1 window_id)|⚠ └─ 1 task task  blocked  Fix the login  app:1
-$task|⚠    ├─ .0        blocked  Fix the login  app:1.0
-$shell|     └─ .1        bash     app  app:1.1
-$(tag keep session_id)|  keep $(rule 36) 1 window
-$(tag keep:0 window_id)|  └─ 0 bash       bash     home  keep:0"
+    assert_equal "$(plain <<<"$output" | tr '\t' '|')" "$(tag app session_id)| |⚠ app $(rule 37) 2 windows
+$(tag app:0 window_id)|1|✓ ├─ 0 orch ◆     done     app  app:0
+$(tag app:1 window_id)|2|⚠ └─ 1 task task  blocked  Fix the login  app:1
+$task| |⚠    ├─ .0        blocked  Fix the login  app:1.0
+$shell| |     └─ .1        bash     app  app:1.1
+$(tag keep session_id)| |  keep $(rule 36) 1 window
+$(tag keep:0 window_id)|3|  └─ 0 bash       bash     home  keep:0"
+}
+
+@test "windows are numbered across sessions, padded to the widest number" {
+    for _ in $(seq 8); do tmux new-window -d -t keep:; done
+    run "$tt" _pick-rows
+    assert_success
+    assert_equal "$(cut -f2 <<<"$output" | tr '\n' '|')" "  |1 |2 |  |3 |4 |5 |6 |7 |8 |9 |10|11|"
 }
 
 @test "a window's name is shown whole, however long" {
@@ -48,13 +55,13 @@ $(tag keep:0 window_id)|  └─ 0 bash       bash     home  keep:0"
 @test "the icons: red blocked, green done and not looked at, yellow working, dim done and seen" {
     agent_in "$task" working
     run "$tt" _pick-rows
-    assert_line --index 2 --partial $'\033[33m…\033[0m └─ 1'
+    assert_line --index 2 --partial $'\t\033[33m…\033[0m └─ 1'
     TMUX_PANE=$task "$tt" state "done" <<<"{\"session_id\": \"session-${task#%}\"}"
     run "$tt" _pick-rows
-    assert_line --index 2 --partial $'\033[32m✓\033[0m └─ 1'
+    assert_line --index 2 --partial $'\t\033[32m✓\033[0m └─ 1'
     tmux set -p -t "$task" @agent_seen 1
     run "$tt" _pick-rows
-    assert_line --index 2 --partial $'\033[2m✓\033[0m └─ 1'
+    assert_line --index 2 --partial $'\t\033[2m✓\033[0m └─ 1'
 }
 
 @test "the preview of a pane is what it shows, without the blank lines below" {

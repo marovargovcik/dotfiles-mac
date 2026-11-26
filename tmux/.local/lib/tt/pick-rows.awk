@@ -2,8 +2,9 @@
 #   1 session id, 2 session name, 3 its window count, 4 window id, 5 window index, 6 window name, 7 its pane count,
 #   8 window role, 9 pane id, 10 pane index, 11 whether it's the window's active pane, 12 what it does, 13 title,
 #   14 directory name, 15 agent state, 16 whether the agent was seen since
-# A row starts with its tmux id and a tab; fzf shows what follows. Columns are as wide as their widest value, so the
-# title gets what's left of the list's width. Run with LC_ALL=C: width() counts characters from UTF-8 bytes.
+# A row starts with its tmux id and a tab, then the window's number (blank on session and pane rows) and a tab; fzf
+# shows what follows the id, and searches the number apart from the rest. Columns are as wide as their widest value,
+# so the title gets what's left of the list's width. Run with LC_ALL=C: width() counts characters from UTF-8 bytes.
 
 # How urgent an agent's state is: blocked, done and not looked at, working, done and seen, nothing.
 function rank(state, seen) {
@@ -44,10 +45,11 @@ function widen(name, s) { if (width(s) > widths[name]) widths[name] = width(s) }
         head[n] = sprintf("\033[1m%s\033[0m \033[2m%s %d window%s\033[0m", $2, repeat("─", 40 - width($2)), $3, ($3 == 1 ? "" : "s"))
     }
 
-    # A window hangs under its session: index, name, role, then its active pane's doing and info.
+    # A window hangs under its session: its number, counting across sessions, then index, name, role, and its active
+    # pane's doing and info.
     if ($4 != window) {
         window = $4; npane = 0; last_window = (++nwindows == $3)
-        kind[++n] = "w"; id[n] = $4; window_of[n] = $4; session_of[n] = $1; w = n
+        kind[++n] = "w"; id[n] = $4; window_of[n] = $4; session_of[n] = $1; w = n; number[n] = ++nwin
         tree[n] = last_window ? "└─" : "├─"; index_[n] = $5; name[n] = $6; role[n] = $8
         widen("index", $5); widen("name", $6); widen("role", $8)
     }
@@ -66,12 +68,13 @@ function widen(name, s) { if (width(s) > widths[name]) widths[name] = width(s) }
 }
 
 END {
+    nw = length(nwin "")
     # A window's head: tree, index, name and role (when any window has one). A pane's label pads to the same width,
     # so doing lines up under it.
     wh = 2 + 1 + widths["index"] + 1 + widths["name"] + (widths["role"] ? 1 + widths["role"] : 0)
     if (5 + 1 + widths["pane"] > wh) wh = 5 + 1 + widths["pane"]
     for (i = 1; i <= n; i++) {
-        if (kind[i] == "s") { printf "%s\t%s %s\n", id[i], icon(session_rank[session_of[i]]), head[i]; continue }
+        if (kind[i] == "s") { printf "%s\t%-*s\t%s %s\n", id[i], nw, "", icon(session_rank[session_of[i]]), head[i]; continue }
         if (kind[i] == "w") {
             h = tree[i] " " pad(index_[i], widths["index"]) " " pad(name[i], widths["name"])
             if (widths["role"]) h = h " " role[i]
@@ -80,6 +83,6 @@ END {
             h = tree[i] " " index_[i]
             ic = icon(rank_[i])
         }
-        printf "%s\t%s %s  %s  %s  \033[2m%s\033[0m\n", id[i], ic, pad(h, wh), pad(doing[i], widths["doing"]), text[i], tag[i]
+        printf "%s\t%-*s\t%s %s  %s  %s  \033[2m%s\033[0m\n", id[i], nw, number[i], ic, pad(h, wh), pad(doing[i], widths["doing"]), text[i], tag[i]
     }
 }

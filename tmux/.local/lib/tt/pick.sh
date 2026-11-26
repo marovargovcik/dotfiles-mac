@@ -5,13 +5,14 @@
 # shellcheck source=mux.sh
 source "${BASH_SOURCE[0]%/*}/mux.sh"
 
-# pick_rows: pick's rows, like the tree: a session, then each window, then each pane, but only for windows split
-# into several (a one-pane window is its pane). Each row starts with its tmux id ($ session, @ window, % pane), then
-# the agent's state as an icon (a session or window takes the most urgent under it: ⚠ blocked, ✓ done and not
-# looked at, … working, a dim ✓ done and seen). A session row is its name in bold and a rule; windows and panes hang
-# under it as a tree (├─ └─). Window rows show their active pane: the role (◆ orchestrator, or task), the agent's
-# state (or the program), and Claude's conversation title (or the directory). Columns fit their widest value. Each window and pane row ends with session:window[.pane] dimmed,
-# so typing a session name also finds what's under it (fzf can't search hidden fields).
+# pick_rows: pick's rows, like the tree: a session, then each window, then each pane, but only for windows split into
+# several (a one-pane window is its pane). Each row starts with its tmux id ($ session, @ window, % pane), then the
+# window's number (windows count 1 up across sessions, in the list's order; other rows leave it blank), then the agent's
+# state as an icon (a session or window takes the most urgent under it: ⚠ blocked, ✓ done and not looked at, … working,
+# a dim ✓ done and seen). A session row is its name in bold and a rule; windows and panes hang under it as a tree
+# (├─ └─). Window rows show their active pane: the role (◆ orchestrator, or task), the agent's state (or the program),
+# and Claude's conversation title (or the directory). Columns fit their widest value. Each window and pane row ends with
+# session:window[.pane] dimmed, so typing a session name also finds what's under it (fzf can't search hidden fields).
 pick_rows() {
     local role='#{?#{==:#{@role},orchestrator},◆,#{?#{@task},task,}}' format
     format=$(formats '#{session_id}' '#{session_name}' '#{session_windows}' \
@@ -44,16 +45,23 @@ notify() {
 }
 
 # pick: goes to the row picked: enter goes there, ctrl-o opens the pull request of the row's branch, ctrl-x kills that
-# row, ctrl-s the row's whole session, ctrl-/ hides or shows the preview. The preview takes the width the rows leave
-# beside them, or sits below when that's under 60 columns, so the list never gets cut short.
+# row, ctrl-s the row's whole session, ctrl-/ hides or shows the preview. A query of digits only searches the windows'
+# numbers, from their start (1 finds 1 and 10-19, not 21), and goes to the window once it's the only one left; any other
+# query searches the rest of the row, so a ticket key's digits still match after its letters. The preview takes the
+# width the rows leave beside them, or sits below when that's under 60 columns, so the list never gets cut short.
 pick() {
-    local self target rows list layout keys='enter: go  ctrl-o: open PR  ctrl-x: kill this row  ctrl-s: kill its session  ctrl-/: preview'
+    local self target rows list layout keys='1-9: window  enter: go  ctrl-o: open PR  ctrl-x: kill this row  ctrl-s: kill its session  ctrl-/: preview'
     self=$(printf %q "$0")
     live pick
     rows=$(pick_rows)
     list=$(($(cut -f2- <<<"$rows" | sed 's/\x1b\[[0-9;]*m//g' | widest) + 4))
     layout="right,$(($(tput cols) - list)),follow,<$((list + 60))(down,50%,follow)"
-    target=$(fzf "${live_opts[@]}" --ansi --no-sort --with-nth=2.. --delimiter='\t' --header="$keys" \
+    # shellcheck disable=SC2016 # fzf's transforms expand them
+    target=$(fzf "${live_opts[@]}" --ansi --no-sort --with-nth=2.. --delimiter='\t' --tabstop=1 --nth=2.. \
+        --header="$keys" \
+        --bind='change:transform:if [[ $FZF_QUERY =~ ^[0-9]+$ ]]; then echo "change-nth(1)+search:^$FZF_QUERY";
+            else echo "change-nth(2..)+search:$FZF_QUERY"; fi' \
+        --bind='result:transform:[[ $FZF_QUERY =~ ^[0-9]+$ && $FZF_MATCH_COUNT == 1 ]] && echo accept' \
         --bind="ctrl-x:execute($self _kill row {1})+reload($self _pick-rows)" \
         --bind="ctrl-s:execute($self _kill session {1})+reload($self _pick-rows)" \
         --bind="ctrl-o:execute-silent($self _pr {1})" \
