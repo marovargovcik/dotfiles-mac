@@ -7,20 +7,33 @@ source "${BASH_SOURCE[0]%/*}/mux.sh"
 
 # pick_rows: pick's rows, like the tree: a session, then each window, then each pane, but only for windows split into
 # several (a one-pane window is its pane). Each row starts with its tmux id ($ session, @ window, % pane), then the
-# window's number (windows count 1 up across sessions, in the list's order; other rows leave it blank), then the agent's
-# state as an icon (a session or window takes the most urgent under it: ⚠ blocked, ✓ done and not looked at, … working,
-# a dim ✓ done and seen). Sessions come in tt order's order (order.sh). A session row is its name in bold and a rule;
-# windows and panes hang under it as a tree (├─ └─). Window rows show their active pane: the role (◆ orchestrator, or
-# task), the agent's state (or the program), and Claude's conversation title (or the directory). Columns fit their
+# window's code (1-9, a, a1-a9, b and so on, across sessions in the list's order; other rows leave it blank), then the
+# agent's state as an icon (a session or window takes the most urgent under it: ⚠ blocked, ✓ done and not looked at, …
+# working, a dim ✓ done and seen). Sessions come in tt order's order (order.sh). A session row is its name in bold and a
+# rule; windows and panes hang under it as a tree (├─ └─). Window rows show their active pane: the role (◆ orchestrator,
+# or task), the agent's state (or the program), and Claude's conversation title (or the directory). Columns fit their
 # widest value. Each window and pane row ends with session:window[.pane] dimmed, so typing a session name also finds
 # what's under it (fzf can't search hidden fields).
+#
+# pick_rows <query>: the rows for a query typed in pick: the window whose code it is first, then a rule, then the rows
+# fzf matches with the query (searching as pick does), each under its session's row, and a pane under its window's.
 pick_rows() {
-    local role='#{?#{==:#{@role},orchestrator},◆,#{?#{@task},task,}}' format
+    local query=${1:-} role='#{?#{==:#{@role},orchestrator},◆,#{?#{@task},task,}}' format lines rows code matched
+    local awk=(LC_ALL=C awk -F'\t' -f "${BASH_SOURCE[0]%/*}/pick-rows.awk")
     format=$(formats '#{session_id}' '#{session_name}' '#{session_windows}' \
         '#{window_id}' '#{window_index}' '#{window_name}' '#{window_panes}' "$role" \
         '#{pane_id}' '#{pane_index}' '#{pane_active}' "#{=8:$doing}" "$title" '#{b:pane_current_path}' \
         "$live_state" '#{@agent_seen}')
-    tmux list-panes -a -F "$format" | in_session_order | LC_ALL=C awk -F'\t' -f "${BASH_SOURCE[0]%/*}/pick-rows.awk"
+    lines=$(tmux list-panes -a -F "$format" | in_session_order)
+    rows=$(env "${awk[@]}" <<<"$lines")
+    if [ -z "$query" ]; then
+        echo "$rows"
+        return 0
+    fi
+    code=${query//[[:space:]]/} code=${code,,}
+    matched=$(fzf --filter="$query" --ansi --no-sort --with-nth=2.. --delimiter='\t' --nth=2.. <<<"$rows" | cut -f1 |
+        tr '\n' ' ' || true)
+    env "${awk[@]}" -v filter=1 -v code="$code" -v matched="$matched" <<<"$lines"
 }
 
 # in_session_order: list-panes' lines (the session name second), sessions in tt order's order, windows and panes
@@ -42,36 +55,35 @@ live() {
 # notify: tells every open picker to reload, in the background so a hook doesn't wait. A socket nothing answers on
 # is left over from a picker that died: it goes.
 notify() {
-    local s kind self
+    local s kind self query
     self=$(printf %q "$0")
     for s in "$pickers"/*.sock; do
         [ -S "$s" ] || continue
-        kind=${s##*/} kind=${kind%%.*}
+        kind=${s##*/} kind=${kind%%.*} query=
+        [ "$kind" = pick ] && query=' {q}'
         curl -s -o /dev/null --max-time 2 --unix-socket "$s" http://localhost \
-            -d "reload-sync($self _$kind-rows)" || rm -f "$s"
+            -d "reload-sync($self _$kind-rows$query)" || rm -f "$s"
     done >/dev/null 2>&1 &
 }
 
 # pick: goes to the row picked: enter goes there, ctrl-o opens the pull request of the row's branch, ctrl-x kills that
-# row, ctrl-s the row's whole session, ctrl-/ hides or shows the preview. A query of digits only searches the windows'
-# numbers, from their start (1 finds 1 and 10-19, not 21), and goes to the window once it's the only one left; any other
-# query searches the rest of the row, so a ticket key's digits still match after its letters. The preview takes the
+# row, ctrl-s the row's whole session, ctrl-/ hides or shows the preview. Each query reloads the rows (pick_rows
+# <query>): fzf only highlights the matches (--raw), and dims the rows kept for context. The cursor goes to the window
+# whose code was typed, or else the first match; enter on the rule after that window does nothing. The preview takes the
 # width the rows leave beside them, or sits below when that's under 60 columns, so the list never gets cut short.
 pick() {
-    local self target rows list layout keys='1-9: window  enter: go  ctrl-o: open PR  ctrl-x: kill this row  ctrl-s: kill its session  ctrl-/: preview'
+    local self target rows list layout keys='a code (1, a, a1…) or text: filter  enter: go  ctrl-o: open PR  ctrl-x: kill this row  ctrl-s: kill its session  ctrl-/: preview'
     self=$(printf %q "$0")
     live pick
     rows=$(pick_rows)
     list=$(($(cut -f2- <<<"$rows" | sed 's/\x1b\[[0-9;]*m//g' | widest) + 4))
     layout="right,$(($(tput cols) - list)),follow,<$((list + 60))(down,50%,follow)"
-    # shellcheck disable=SC2016 # fzf's transforms expand them
-    target=$(fzf "${live_opts[@]}" --ansi --no-sort --with-nth=2.. --delimiter='\t' --tabstop=1 --nth=2.. \
+    target=$(fzf "${live_opts[@]}" --ansi --no-sort --with-nth=2.. --delimiter='\t' --tabstop=1 --nth=2.. --raw \
         --header="$keys" \
-        --bind='change:transform:if [[ $FZF_QUERY =~ ^[0-9]+$ ]]; then echo "change-nth(1)+search:^$FZF_QUERY";
-            else echo "change-nth(2..)+search:$FZF_QUERY"; fi' \
-        --bind='result:transform:[[ $FZF_QUERY =~ ^[0-9]+$ && $FZF_MATCH_COUNT == 1 ]] && echo accept' \
-        --bind="ctrl-x:execute($self _kill row {1})+reload($self _pick-rows)" \
-        --bind="ctrl-s:execute($self _kill session {1})+reload($self _pick-rows)" \
+        --bind="change:reload-sync($self _pick-rows {q})+first+transform:[ \"\$FZF_RAW\" = 1 ] || echo down-match" \
+        --bind="enter:transform:[ {1} = - ] || echo accept" \
+        --bind="ctrl-x:execute($self _kill row {1})+reload($self _pick-rows {q})" \
+        --bind="ctrl-s:execute($self _kill session {1})+reload($self _pick-rows {q})" \
         --bind="ctrl-o:execute-silent($self _pr {1})" \
         --bind=ctrl-/:toggle-preview \
         --preview="$self _preview {1}" --preview-window="$layout" <<<"$rows" | cut -f1) || exit 0
@@ -98,6 +110,7 @@ capture() {
 # them stacked, the tail of each under a tag naming it, like the tree does.
 preview() {
     local target=$1 panes p id name what dir active tag out i rows cols each format
+    [ "$target" != - ] || return 0
     if [[ $target == %* ]] || [ "$(tmux display -p -t "$target" '#{window_panes}' 2>/dev/null)" -le 1 ]; then
         capture "$target"
         return 0
@@ -123,6 +136,7 @@ preview() {
 # usable; with none, tmux's status line says so.
 open_pr() {
     local dir
+    [ "$1" != - ] || return 0
     dir=$(tmux display -p -t "$1" '#{pane_current_path}') || return 0
     {
         if ! (cd "$dir" && gh pr view --web); then
@@ -136,6 +150,7 @@ open_pr() {
 # The row's own kind comes from its id: $ session, @ window, % pane.
 kill_target() {
     local target=$2 what fmt answer
+    [ "$target" != - ] || return 0
     [ "$1" = session ] && target=$(tmux display -p -t "$target" '#{session_id}')
     case $target in
     \$*) what=session fmt='#{session_name}' ;;

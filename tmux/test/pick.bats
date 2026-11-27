@@ -38,11 +38,46 @@ $(tag keep session_id)| |  keep $(rule 36) 1 window
 $(tag keep:0 window_id)|3|  └─ 0 bash       bash     home  keep:0"
 }
 
-@test "windows are numbered across sessions, padded to the widest number" {
-    for _ in $(seq 8); do tmux new-window -d -t keep:; done
+@test "windows get codes across sessions: 1-9, then a, a1, a2" {
+    for _ in $(seq 9); do tmux new-window -d -t keep:; done
     run "$tt" _pick-rows
     assert_success
-    assert_equal "$(cut -f2 <<<"$output" | tr '\n' '|')" "  |1 |2 |  |3 |4 |5 |6 |7 |8 |9 |10|11|"
+    assert_equal "$(cut -f2 <<<"$output" | tr '\n' '|')" "  |1 |2 |  |3 |4 |5 |6 |7 |8 |9 |a |a1|a2|"
+}
+
+@test "a query that is a window's code puts that window first, marked with its session, then a rule" {
+    rm "$tmp/bin/fzf"
+    for _ in $(seq 9); do tmux new-window -d -t keep:; done
+    run "$tt" _pick-rows a1
+    assert_success
+    assert_equal "$(cut -f1 <<<"$output" | head -2 | tr '\n' '|')" "$(tag keep:8 window_id)|-|"
+    assert_line --index 0 --partial $'\033[1m◀ a1\033[0m · keep'
+}
+
+@test "the rows a query matches come under their session's row, and a pane under its window's" {
+    rm "$tmp/bin/fzf"
+    shell=$(tmux split-window -d -P -F '#{pane_id}' -t "$task" -c "$tmp/app")
+    run "$tt" _pick-rows orch
+    assert_equal "$(cut -f1 <<<"$output" | tr '\n' '|')" "$(tag app session_id)|$(tag app:0 window_id)|"
+    run "$tt" _pick-rows 1.1
+    assert_equal "$(cut -f1 <<<"$output" | tr '\n' '|')" "$(tag app session_id)|$(tag app:1 window_id)|$shell|"
+}
+
+@test "a query nothing matches, and no window's code, lists nothing" {
+    rm "$tmp/bin/fzf"
+    run "$tt" _pick-rows qqqq
+    assert_success
+    assert_output ""
+}
+
+@test "the rule after the code's window goes nowhere: no preview, kill or pull request" {
+    run "$tt" _preview -
+    assert_success
+    assert_output ""
+    run "$tt" _kill row -
+    assert_success
+    run "$tt" _pr -
+    assert_success
 }
 
 @test "a window's name is shown whole, however long" {

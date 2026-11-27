@@ -18,8 +18,8 @@
 #   tt read <pane> [lines]             what the pane shows, plus its scrollback
 #   tt pick                            fuzzy-finds a session, window or pane: enter goes there, ctrl-o opens
 #                                      the pull request of the row's branch, ctrl-x kills that row, ctrl-s
-#                                      the row's whole session; previews the row's pane; a window's number
-#                                      typed first goes to it
+#                                      the row's whole session; previews the row's pane; a window's code
+#                                      (1-9, a, a1…) typed puts that window first, then what else matches
 #   tt order                           the order tt pick lists sessions in: j/k move the cursor, l grabs the
 #                                      session (or lets it go), and j/k then move it; saved as it moves
 #   tt count                           blocked agents and finished ones not looked at yet, as a status-line counter
@@ -87,7 +87,7 @@ send) send "${2:-}" "${3:-}" ;;
 _handoff) mux_deliver_handoff "$2" "$3" ;;
 read) read_pane "${2:-}" "${3:-}" ;;
 pick) pick ;;
-_pick-rows) pick_rows ;;
+_pick-rows) pick_rows "${2:-}" ;;
 _preview) preview "$2" ;;
 _kill) kill_target "$2" "$3" ;;
 _pr) open_pr "$2" ;;
